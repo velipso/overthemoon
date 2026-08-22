@@ -1,0 +1,8 @@
+struct Player {
+  int x;
+  int y;
+  int forceX;
+  int forceY;
+  int velX;
+  int velY;
+};

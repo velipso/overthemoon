@@ -1,0 +1,20 @@
+#!/bin/bash
+# SPDX-License-Identifier: 0BSD
+
+SCRIPTS="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+npx --yes --package=typescript@7.0.2 \
+  tsc "$SCRIPTS/typelib.ts" \
+  --noEmit \
+  --strict \
+  --target esnext \
+  --module preserve \
+  --erasableSyntaxOnly
+
+npx --yes --package=typescript@7.0.2 \
+  tsc "$SCRIPTS/gbareg.ts" \
+  --noEmit \
+  --strict \
+  --target esnext \
+  --module preserve \
+  --erasableSyntaxOnly

@@ -15,17 +15,21 @@ SRC_DIR            := $(ROOT_DIR)/src
 GBA_DIR            := $(ROOT_DIR)/gba
 DATA_DIR           := $(ROOT_DIR)/data
 TYPES_DIR          := $(ROOT_DIR)/types
+TESTS_DIR          := $(ROOT_DIR)/tests
 XFORM_DIR          := $(ROOT_DIR)/xform
 SCRIPTS_DIR        := $(ROOT_DIR)/scripts
 TGT_DIR            := $(ROOT_DIR)/tgt
 TGT_TYPES_DIR      := $(TGT_DIR)/types
 TGT_TYPES_SRC_DIR  := $(TGT_TYPES_DIR)/types
 TGT_TYPES_ARM_DIR  := $(TGT_TYPES_DIR)/arm
-TGT_TYPES_HOST_DIR := $(TGT_TYPES_DIR)/host
+TGT_TYPES_TESTS_DIR:= $(TGT_TYPES_DIR)/tests
+TGT_TYPES_XFORM_DIR:= $(TGT_TYPES_DIR)/xform
+TGT_TESTS_DIR      := $(TGT_DIR)/tests
 TGT_XFORM_DIR      := $(TGT_DIR)/xform
 TGT_SRC_DIR        := $(TGT_DIR)/src
 TGT_GBA_DIR        := $(TGT_DIR)/gba
 
+TESTS              := $(TGT_TESTS_DIR)/tests
 XFORM              := $(TGT_XFORM_DIR)/xform
 
 GBA_ELF            := $(TGT_DIR)/$(NAME).elf
@@ -35,16 +39,41 @@ GBA_MAP            := $(TGT_DIR)/$(NAME).map
 
 # -----
 
-HOST_C             := gcc
-HOST_CFLAGS        :=     \
+TESTS_C            := gcc
+TESTS_CFLAGS       :=     \
+	-Wall                   \
+	-O3                     \
+	-std=gnu23              \
+	-DTESTS                 \
+	-I$(TESTS_DIR)          \
+	-I$(TGT_TYPES_DIR)      \
+	-I$(SRC_DIR)            \
+	-I$(ROOT_DIR)
+TESTS_CPP          := g++
+TESTS_CPPFLAGS     :=     \
+	-Wall                   \
+	-Wno-unused-function    \
+	-O3                     \
+	-std=gnu++20            \
+	-DTESTS                 \
+	-I$(TESTS_DIR)          \
+	-I$(TGT_TYPES_DIR)      \
+	-I$(SRC_DIR)            \
+	-I$(ROOT_DIR)
+
+# -----
+
+XFORM_C            := gcc
+XFORM_CFLAGS       :=     \
 	-Wall                   \
 	-O3                     \
 	-std=gnu23              \
 	-I$(XFORM_DIR)          \
 	-I$(TGT_TYPES_DIR)
-HOST_CPP           := g++
-HOST_CPPFLAGS      :=     \
+XFORM_CPP          := g++
+XFORM_CPPFLAGS     :=     \
 	-Wall                   \
+	-Wno-unused-function    \
 	-O3                     \
 	-std=gnu++20            \
 	-I$(XFORM_DIR)          \
@@ -59,10 +88,8 @@ ARM_COMMON_FLAGS   :=     \
 	-ffunction-sections     \
 	-fdata-sections
 ARM_C              := arm-none-eabi-gcc
-##################################### TODO: remove -Wno-int-conversion
 ARM_CFLAGS         :=     \
 	-Wall                   \
-	-Wno-int-conversion     \
 	-O3                     \
 	-std=gnu23              \
 	-mthumb                 \
@@ -117,11 +144,21 @@ ARM_OBJCOPY        := arm-none-eabi-objcopy
 
 # -----
 
-.PHONY: all clean dump
+.PHONY: all clean dump tests test test-v xform
 .DEFAULT_GOAL := all
 .SECONDARY:
 
 all: $(GBA_ROM)
+
+tests: $(TESTS)
+
+test: $(TESTS)
+	$(TESTS) $(FILTER)
+
+test-v: $(TESTS)
+	$(TESTS) -v $(FILTER)
+
+xform: $(XFORM)
 
 clean:
 	rm -rf $(TGT_DIR)
@@ -134,7 +171,8 @@ TYPELIB_HPP        := $(TGT_TYPES_SRC_DIR)/typelib.hpp
 TYPELIB_CPP        := $(TGT_TYPES_SRC_DIR)/typelib.cpp
 TYPELIB_JS         := $(TGT_TYPES_SRC_DIR)/typelib.js
 TYPELIB_ARM_OBJ    := $(TGT_TYPES_ARM_DIR)/typelib.cpp.o
-TYPELIB_HOST_OBJ   := $(TGT_TYPES_HOST_DIR)/typelib.cpp.o
+TYPELIB_TESTS_OBJ  := $(TGT_TYPES_TESTS_DIR)/typelib.cpp.o
+TYPELIB_XFORM_OBJ  := $(TGT_TYPES_XFORM_DIR)/typelib.cpp.o
 
 $(TYPELIB_HPP) \
 $(TYPELIB_CPP) \
@@ -146,9 +184,13 @@ $(TYPELIB_ARM_OBJ): $(TYPELIB_CPP) $(TYPELIB_HPP)
 	@mkdir -p $(@D)
 	$(ARM_CPP) $(ARM_CPPFLAGS) -MMD -MP -c -o $@ $<
 
-$(TYPELIB_HOST_OBJ): $(TYPELIB_CPP) $(TYPELIB_HPP)
+$(TYPELIB_TESTS_OBJ): $(TYPELIB_CPP) $(TYPELIB_HPP)
 	@mkdir -p $(@D)
-	$(HOST_CPP) $(HOST_CPPFLAGS) -MMD -MP -c -o $@ $<
+	$(TESTS_CPP) $(TESTS_CPPFLAGS) -MMD -MP -c -o $@ $<
+
+$(TYPELIB_XFORM_OBJ): $(TYPELIB_CPP) $(TYPELIB_HPP)
+	@mkdir -p $(@D)
+	$(XFORM_CPP) $(XFORM_CPPFLAGS) -MMD -MP -c -o $@ $<
 
 # -----
 
@@ -157,7 +199,8 @@ TYPE_CPP           := $(patsubst $(TYPES_DIR)/%.type,$(TGT_TYPES_SRC_DIR)/%.cpp,
 TYPE_HPP           := $(patsubst $(TYPES_DIR)/%.type,$(TGT_TYPES_SRC_DIR)/%.hpp,$(TYPES))
 TYPE_JS            := $(patsubst $(TYPES_DIR)/%.type,$(TGT_TYPES_SRC_DIR)/%.js,$(TYPES))
 TYPE_ARM_OBJS      := $(patsubst $(TGT_TYPES_SRC_DIR)/%.cpp,$(TGT_TYPES_ARM_DIR)/%.cpp.o,$(TYPE_CPP))
-TYPE_HOST_OBJS     := $(patsubst $(TGT_TYPES_SRC_DIR)/%.cpp,$(TGT_TYPES_HOST_DIR)/%.cpp.o,$(TYPE_CPP))
+TYPE_TESTS_OBJS    := $(patsubst $(TGT_TYPES_SRC_DIR)/%.cpp,$(TGT_TYPES_TESTS_DIR)/%.cpp.o,$(TYPE_CPP))
+TYPE_XFORM_OBJS    := $(patsubst $(TGT_TYPES_SRC_DIR)/%.cpp,$(TGT_TYPES_XFORM_DIR)/%.cpp.o,$(TYPE_CPP))
 
 $(TGT_TYPES_SRC_DIR)/%.cpp: $(TYPES_DIR)/%.type $(SCRIPTS_DIR)/typelib.ts
 	@mkdir -p $(@D)
@@ -175,33 +218,61 @@ $(TGT_TYPES_ARM_DIR)/%.cpp.o: $(TGT_TYPES_SRC_DIR)/%.cpp $(TGT_TYPES_SRC_DIR)/%.
 	@mkdir -p $(@D)
 	$(ARM_CPP) $(ARM_CPPFLAGS) -I$(TGT_TYPES_SRC_DIR) -MMD -MP -c -o $@ $<
 
-$(TGT_TYPES_HOST_DIR)/%.cpp.o: $(TGT_TYPES_SRC_DIR)/%.cpp $(TGT_TYPES_SRC_DIR)/%.hpp
+$(TGT_TYPES_TESTS_DIR)/%.cpp.o: $(TGT_TYPES_SRC_DIR)/%.cpp $(TGT_TYPES_SRC_DIR)/%.hpp
 	@mkdir -p $(@D)
-	$(HOST_CPP) $(HOST_CPPFLAGS) -MMD -MP -I$(TGT_TYPES_SRC_DIR) -c -o $@ $<
+	$(TESTS_CPP) $(TESTS_CPPFLAGS) -MMD -MP -I$(TGT_TYPES_SRC_DIR) -c -o $@ $<
+
+$(TGT_TYPES_XFORM_DIR)/%.cpp.o: $(TGT_TYPES_SRC_DIR)/%.cpp $(TGT_TYPES_SRC_DIR)/%.hpp
+	@mkdir -p $(@D)
+	$(XFORM_CPP) $(XFORM_CPPFLAGS) -MMD -MP -I$(TGT_TYPES_SRC_DIR) -c -o $@ $<
 
 # -----
 
-XFORM_C            := $(shell find $(XFORM_DIR) -type f -name '*.c')
-XFORM_CPP          := $(shell find $(XFORM_DIR) -type f -name '*.cpp')
+TESTS_SRC_C        := $(shell find $(TESTS_DIR) -type f -name '*.c')
+TESTS_SRC_CPP      := $(shell find $(TESTS_DIR) -type f -name '*.cpp')
+TESTS_OBJS         := \
+	$(patsubst $(TESTS_DIR)/%.c,$(TGT_TESTS_DIR)/%.c.o,$(TESTS_SRC_C)) \
+	$(patsubst $(TESTS_DIR)/%.cpp,$(TGT_TESTS_DIR)/%.cpp.o,$(TESTS_SRC_CPP)) \
+	$(TYPELIB_TESTS_OBJ) \
+	$(TYPE_TESTS_OBJS)
+TESTS_DEPS         := $(TESTS_OBJS:.o=.d)
+
+$(TGT_TESTS_DIR)/%.c.o: $(TESTS_DIR)/%.c
+	@mkdir -p $(@D)
+	$(TESTS_C) $(TESTS_CFLAGS) -MMD -MP -c -o $@ $<
+
+$(TGT_TESTS_DIR)/%.cpp.o: $(TESTS_DIR)/%.cpp
+	@mkdir -p $(@D)
+	$(TESTS_CPP) $(TESTS_CPPFLAGS) -MMD -MP -c -o $@ $<
+
+$(TESTS_OBJS): $(TYPELIB_HPP) $(TYPE_HPP)
+
+$(TESTS): $(TESTS_OBJS)
+	$(TESTS_CPP) -o $@ $(TESTS_OBJS)
+
+# -----
+
+XFORM_SRC_C        := $(shell find $(XFORM_DIR) -type f -name '*.c')
+XFORM_SRC_CPP      := $(shell find $(XFORM_DIR) -type f -name '*.cpp')
 XFORM_OBJS         := \
-	$(patsubst $(XFORM_DIR)/%.c,$(TGT_XFORM_DIR)/%.c.o,$(XFORM_C)) \
-	$(patsubst $(XFORM_DIR)/%.cpp,$(TGT_XFORM_DIR)/%.cpp.o,$(XFORM_CPP)) \
-	$(TYPELIB_HOST_OBJ) \
-	$(TYPE_HOST_OBJS)
+	$(patsubst $(XFORM_DIR)/%.c,$(TGT_XFORM_DIR)/%.c.o,$(XFORM_SRC_C)) \
+	$(patsubst $(XFORM_DIR)/%.cpp,$(TGT_XFORM_DIR)/%.cpp.o,$(XFORM_SRC_CPP)) \
+	$(TYPELIB_XFORM_OBJ) \
+	$(TYPE_XFORM_OBJS)
 XFORM_DEPS         := $(XFORM_OBJS:.o=.d)
 
 $(TGT_XFORM_DIR)/%.c.o: $(XFORM_DIR)/%.c
 	@mkdir -p $(@D)
-	$(HOST_C) $(HOST_CFLAGS) -MMD -MP -c -o $@ $<
+	$(XFORM_C) $(XFORM_CFLAGS) -MMD -MP -c -o $@ $<
 
 $(TGT_XFORM_DIR)/%.cpp.o: $(XFORM_DIR)/%.cpp
 	@mkdir -p $(@D)
-	$(HOST_CPP) $(HOST_CPPFLAGS) -MMD -MP -c -o $@ $<
+	$(XFORM_CPP) $(XFORM_CPPFLAGS) -MMD -MP -c -o $@ $<
 
 $(XFORM_OBJS): $(TYPELIB_HPP) $(TYPE_HPP)
 
 $(XFORM): $(XFORM_OBJS)
-	$(HOST_CPP) -o $@ $(XFORM_OBJS)
+	$(XFORM_CPP) -o $@ $(XFORM_OBJS)
 
 # -----
 
@@ -273,4 +344,5 @@ $(GBA_DUMP): $(GBA_ELF)
 # -----
 
 -include $(XFORM_DEPS)
+-include $(TESTS_DEPS)
 -include $(ARM_DEPS)

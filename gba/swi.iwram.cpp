@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#include "swi.hpp"
+#include "Swi.hpp"
 
 void Swi::softReset() {
   __asm__("swi #0x000000" ::: "r0", "r1", "r2", "r3", "r12", "lr", "memory", "cc");

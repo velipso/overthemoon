@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 #pragma once
 
-#include "irq.hpp"
+#include "Irq.hpp"
 #include "mem.hpp"
-#include "reg.hpp"
-#include "swi.hpp"
+#include "Reg.hpp"
+#include "Swi.hpp"

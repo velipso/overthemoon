@@ -41,8 +41,8 @@ struct VramObj {
   bool isEmpty();
   bool isEmptyBitmap();
   bool isFull();
-  int alloc(int slots, int mask); // returns a handle or -1 for out of memory
-  void free(int handle);
+  int16_t alloc(int slots, int mask); // returns a handle or -1 for out of memory
+  void free(int16_t handle);
 
   //
   // handle is in format:
@@ -80,7 +80,7 @@ struct VramObj {
     return sizeMask(width, height) >= 0;
   }
 
-  int alloc256(int width, int height) { // width and height are in pixels, must be valid GBA size
+  int16_t alloc256(int width, int height) { // width and height are in pixels, must be valid GBA size
     int s = sizeMask(width, height);
     if (s < 0) return -1;
     width >>= 3;
@@ -88,7 +88,7 @@ struct VramObj {
     return alloc(width * height * 2, (s << 11) | 0x0400);
   }
 
-  int alloc16(int width, int height) { // width and height are in pixels, must be valid GBA size
+  int16_t alloc16(int width, int height) { // width and height are in pixels, must be valid GBA size
     int s = sizeMask(width, height);
     if (s < 0) return -1;
     width >>= 3;
@@ -96,59 +96,59 @@ struct VramObj {
     return alloc(width * height, s << 11);
   }
 
-  static int tile(int handle) {
+  static int tile(int16_t handle) {
     return handle & 0x3ff;
   }
 
-  static bool is16(int handle) {
+  static bool is16(int16_t handle) {
     return (handle & 0x0400) == 0;
   }
 
-  static bool is256(int handle) {
+  static bool is256(int16_t handle) {
     return (handle & 0x0400) != 0;
   }
 
-  static int tileWidth(int handle) {
+  static int tileWidth(int16_t handle) {
     const int widths[] = { 1, 2, 1, -1, 2, 4, 1, -1, 4, 4, 2, -1, 8, 8, 4, -1 };
     return widths[(handle >> 11) & 15];
   }
 
-  static int width(int handle) {
+  static int width(int16_t handle) {
     return tileWidth(handle) << 3;
   }
 
-  static int tileHeight(int handle) {
+  static int tileHeight(int16_t handle) {
     const int heights[] = { 1, 1, 2, -1, 2, 1, 4, -1, 4, 2, 4, -1, 8, 4, 8, -1 };
     return heights[(handle >> 11) & 15];
   }
 
-  static int height(int handle) {
+  static int height(int16_t handle) {
     return tileHeight(handle) << 3;
   }
 
-  static uint16_t oamAttr0(int handle) {
+  static uint16_t oamAttr0(int16_t handle) {
     // handle already puts 256 bit flag next to shape bits
     return ((handle >> 10) & 7) << 13;
   }
 
-  static uint16_t oamAttr1(int handle) {
+  static uint16_t oamAttr1(int16_t handle) {
     return ((handle >> 12) & 3) << 14;
   }
 
-  static uint16_t oamAttr2(int handle) {
+  static uint16_t oamAttr2(int16_t handle) {
     return tile(handle);
   }
 
-  static uint16_t *addr(int handle) {
+  static uint16_t *addr(int16_t handle) {
     return reinterpret_cast<uint16_t *>(uintptr_t{0x06010000u} + (tile(handle) << 5));
   }
 
-  static int bytes(int handle) {
+  static int bytes(int16_t handle) {
     return (width(handle) * height(handle)) >> (is256(handle) ? 0 : 1);
   }
 
 #ifndef TESTS
-  static void copy(int handle, const void *src) {
+  static __attribute__((always_inline)) inline void copy(int16_t handle, const void *src) {
     memcpy32(addr(handle), src, bytes(handle));
   }
 #endif

@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: 0BSD
 #include "tests.hpp"
 #include "TestBasic.hpp"
+#include "TestOam.hpp"
 #include "TestVramObj.hpp"
 #include <stdio.h>
 #include <string.h>
 
+#include "gba/util/ctz32.cpp"
+
 static TestBasic basic;
+static TestOam oam;
 static TestVramObj vramObj;
 
 static Test *tests[] = {
   &basic,
+  &oam,
   &vramObj,
   NULL
 };

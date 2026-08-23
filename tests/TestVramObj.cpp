@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: 0BSD
 #include "TestVramObj.hpp"
-#include <stdio.h>
 
-#include "gba/util.cpp"
 #include "gba/VramObj.cpp"
 
 TestVramObj::TestVramObj() {

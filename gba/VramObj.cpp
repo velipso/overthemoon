@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: 0BSD
 #include "VramObj.hpp"
-#include "util.hpp"
+#include "util/ctz32.hpp"
 
 #ifdef TESTS
 #include <random>
@@ -15,7 +15,7 @@ static bool g_doubleFree;
 
 void VramObj::reset() {
   for (int i = 0; i < 32; i++) {
-    avail[i] = 0xffffffff;
+    avail[i] = 0xffffffffu;
   }
 }
 
@@ -25,20 +25,20 @@ void VramObj::resetBitmap() {
     avail[i] = 0;
   }
   for (; i < 32; i++) {
-    avail[i] = 0xffffffff;
+    avail[i] = 0xffffffffu;
   }
 }
 
 bool VramObj::isEmpty() {
   for (int i = 0; i < 32; i++) {
-    if (avail[i] != 0xffffffff) return false;
+    if (avail[i] != 0xffffffffu) return false;
   }
   return true;
 }
 
 bool VramObj::isEmptyBitmap() {
   for (int i = 16; i < 32; i++) {
-    if (avail[i] != 0xffffffff) return false;
+    if (avail[i] != 0xffffffffu) return false;
   }
   return true;
 }
@@ -70,7 +70,7 @@ static inline void clearAvail(uint32_t *avail, int i, uint32_t mask) {
   avail[i] |= mask;
 }
 
-int VramObj::alloc(int slots, int mask) {
+int16_t VramObj::alloc(int slots, int mask) {
   bool is256 = VramObj::is256(mask);
   for (int w = 0; w < 32; w++) {
     uint32_t bits = avail[w];
@@ -115,7 +115,7 @@ int VramObj::alloc(int slots, int mask) {
   return -1;
 }
 
-void VramObj::free(int handle) {
+void VramObj::free(int16_t handle) {
   if (handle < 0) return;
   int tw = VramObj::tileWidth(handle);
   int th = VramObj::tileHeight(handle);
@@ -134,7 +134,7 @@ void VramObj::free(int handle) {
 }
 
 #ifdef TESTS
-std::mt19937 rng(std::random_device{}());
+static std::mt19937 rng(std::random_device{}());
 
 static int rand(int size) {
   if (size <= 1) return 0;

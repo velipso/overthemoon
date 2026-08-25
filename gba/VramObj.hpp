@@ -6,7 +6,7 @@
 //
 // VramObj vramObj; // declare global
 // // ...later
-// int handle = vramObj.alloc256(16, 8); // 8bpp
+// int16_t handle = vramObj.alloc256(16, 8); // 8bpp
 // // or you can use vramObj.alloc16(W, H) for 4bpp
 // if (handle < 0) {
 //   // out of memory!
@@ -35,14 +35,14 @@
 struct VramObj {
   uint32_t avail[32]; // 1024 bits, for each 4bpp 8x8 cell in VRAM
 
-  void reset(); // frees all memory
+  VramObj &reset(); // frees all memory
   VramObj() { reset(); }
-  void resetBitmap(); // reserves first 512 tiles, frees second 512 tiles (for bitmap modes 3-5)
+  VramObj &resetBitmap(); // reserves first 512 tiles, frees second 512 tiles (for bitmap modes 3-5)
   bool isEmpty();
   bool isEmptyBitmap();
   bool isFull();
   int16_t alloc(int slots, int mask); // returns a handle or -1 for out of memory
-  void free(int16_t handle);
+  VramObj &free(int16_t handle);
 
   //
   // handle is in format:
@@ -53,6 +53,7 @@ struct VramObj {
   //   H - OAM shape (0 square, 1 horizontal, 2 vertical, 3 prohibited)
   //   Z - OAM size (0-3)
   //
+  // NOTE: the gba/Oam.hpp code relies on this exact format!
 
   static int sizeMask(int width, int height) {
     // uses goofy GBA encoding, lower 2 bits for OAM attribute 0, upper 2 bits for OAM attribute 1

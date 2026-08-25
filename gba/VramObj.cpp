@@ -13,13 +13,14 @@ static bool g_doubleFree;
 #define log(fmt, ...)
 #endif
 
-void VramObj::reset() {
+VramObj &VramObj::reset() {
   for (int i = 0; i < 32; i++) {
     avail[i] = 0xffffffffu;
   }
+  return *this;
 }
 
-void VramObj::resetBitmap() {
+VramObj &VramObj::resetBitmap() {
   int i = 0;
   for (; i < 16; i++) {
     avail[i] = 0;
@@ -27,6 +28,7 @@ void VramObj::resetBitmap() {
   for (; i < 32; i++) {
     avail[i] = 0xffffffffu;
   }
+  return *this;
 }
 
 bool VramObj::isEmpty() {
@@ -115,8 +117,8 @@ int16_t VramObj::alloc(int slots, int mask) {
   return -1;
 }
 
-void VramObj::free(int16_t handle) {
-  if (handle < 0) return;
+VramObj &VramObj::free(int16_t handle) {
+  if (handle < 0) return *this;
   int tw = VramObj::tileWidth(handle);
   int th = VramObj::tileHeight(handle);
   int size = tw * th;
@@ -131,6 +133,7 @@ void VramObj::free(int16_t handle) {
     pos += n;
     size -= n;
   }
+  return *this;
 }
 
 #ifdef TESTS

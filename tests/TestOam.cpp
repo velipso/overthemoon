@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: 0BSD
 #include "TestOam.hpp"
-#include <stdio.h>
 
 #include "gba/Oam.cpp"
 

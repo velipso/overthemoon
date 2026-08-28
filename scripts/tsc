@@ -3,18 +3,12 @@
 
 SCRIPTS="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-npx --yes --package=typescript@7.0.2 \
-  tsc "$SCRIPTS/typelib.ts" \
-  --noEmit \
-  --strict \
-  --target esnext \
-  --module preserve \
-  --erasableSyntaxOnly
-
-npx --yes --package=typescript@7.0.2 \
-  tsc "$SCRIPTS/gbareg.ts" \
-  --noEmit \
-  --strict \
-  --target esnext \
-  --module preserve \
-  --erasableSyntaxOnly
+find "$SCRIPTS" -type f -name '*.ts' | while read -r file; do
+  npx --yes --package=typescript@7.0.2 \
+    tsc "$file" \
+    --noEmit \
+    --strict \
+    --target esnext \
+    --module preserve \
+    --erasableSyntaxOnly
+done

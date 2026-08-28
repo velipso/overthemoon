@@ -5,5 +5,6 @@
 #include "mem.hpp"
 #include "Oam.hpp"
 #include "Reg.hpp"
+#include "Spr.hpp"
 #include "Swi.hpp"
 #include "VramObj.hpp"

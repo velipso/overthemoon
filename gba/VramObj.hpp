@@ -97,6 +97,12 @@ struct VramObj {
     return alloc(width * height, s << 11);
   }
 
+  int16_t alloc(int width, int height, bool is256) {
+    return is256
+      ? alloc256(width, height)
+      : alloc16(width, height);
+  }
+
   static int tile(int16_t handle) {
     return handle & 0x3ff;
   }

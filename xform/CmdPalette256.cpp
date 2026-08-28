@@ -4,9 +4,7 @@ extern "C" {
   #include "stb_image.h"
 }
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <stdint.h>
 
 typedef uint32_t u32;
@@ -31,6 +29,7 @@ static int addpalette(const char *input, u16 *palette, int *nextpal, int maxpal)
   FILE *fp = fopen(input, "rb");
   int width, height;
   u32 *data = (u32 *)stbi_load_from_file(fp, &width, &height, NULL, 4);
+  fclose(fp);
   if (data == NULL) {
     fprintf(stderr, "\nFailed to read: %s\n", input);
     return 1;
@@ -72,11 +71,11 @@ int CmdPalette256::main(int argc, const char **argv) {
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "-o") == 0) {
       if (++i >= argc) {
-        fprintf(stderr, "\nError: Missing output file after -o");
+        fprintf(stderr, "\nError: Missing output file after -o\n");
         return 1;
       }
       if (output) {
-        fprintf(stderr, "Error: Cannot set output file -o more than once");
+        fprintf(stderr, "\nError: Cannot set output file -o more than once\n");
         return 1;
       }
       output = argv[i];
@@ -89,6 +88,7 @@ int CmdPalette256::main(int argc, const char **argv) {
   }
 
   if (!output) {
+    help();
     fprintf(stderr, "\nMissing output file (-o)\n");
     return 1;
   }

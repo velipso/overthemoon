@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: 0BSD
 #include "VramObj.hpp"
 #include "util/ctz32.hpp"
+#include "gba/atomic.hpp"
 
 #ifdef TESTS
 #include <random>
 #include <stdio.h>
 static bool g_verbose;
-static bool g_doubleAlloc;
 static bool g_doubleFree;
 #define log(fmt, ...) if (g_verbose) printf(fmt, ##__VA_ARGS__)
 #else
@@ -54,16 +54,6 @@ bool VramObj::isFull() {
 
 static inline void setAvail(uint32_t *avail, int i, uint32_t mask) {
 #ifdef TESTS
-  if (~avail[i] & mask) {
-    log("double allocation detected\n");
-    g_doubleAlloc = true;
-  }
-#endif
-  avail[i] &= ~mask;
-}
-
-static inline void clearAvail(uint32_t *avail, int i, uint32_t mask) {
-#ifdef TESTS
   if (avail[i] & mask) {
     log("double free detected\n");
     g_doubleFree = true;
@@ -72,48 +62,62 @@ static inline void clearAvail(uint32_t *avail, int i, uint32_t mask) {
   avail[i] |= mask;
 }
 
+template <typename F>
+static inline int scanBits(int pos, int slots, F &&func) {
+  while (slots) {
+    int i = pos >> 5;
+    int b = pos & 0x1f;
+    int n = slots < 32 - b ? slots : 32 - b;
+    uint32_t m = n == 32 ? 0xffffffffu : ((1u << n) - 1) << b;
+    if (!func(i, m)) return pos;
+    pos += n;
+    slots -= n;
+  }
+  return -1;
+}
+
 int16_t VramObj::alloc(int slots, int mask) {
   bool is256 = VramObj::is256(mask);
+  bool didRetry = false;
+retry:
   for (int w = 0; w < 32; w++) {
     uint32_t bits = avail[w];
     while (bits) {
-      int b = ctz32(bits);
-      int start = (w << 5) + b;
+      // find next available 1 bit
+      int start = (w << 5) + ctz32(bits);
+      bits &= bits - 1; // trick to clear the lowest 1
+      if (is256 && (start & 1)) continue; // if 256 color, tiles must be aligned to 2
+      if (start + slots > 1024) return -1; // not enough space, so don't bother
 
-      bits &= bits - 1;
-
-      if (is256 && (start & 1)) continue;
-      if (start + slots > 1024) return -1;
-
-      int pos = start;
-      int left = slots;
-      while (left) {
-        int wi = pos >> 5;
-        int bi = pos & 31;
-        int n = left < 32 - bi ? left : 32 - bi;
-        uint32_t m = n == 32 ? 0xffffffffu : ((1u << n) - 1) << bi;
-        if ((avail[wi] & m) != m) break;
-        pos += n;
-        left -= n;
+      // see if we can find 'slots' bits available
+      if (scanBits(start, slots, [&](int i, uint32_t m) {
+        // if all bits in m are set, then keep going
+        return (avail[i] & m) == m;
+      }) >= 0) {
+        // found bits that weren't set, so try next 1 in bits
+        continue;
       }
 
-      if (!left) {
-        pos = start;
-        left = slots;
-        while (left) {
-          int wi = pos >> 5;
-          int bi = pos & 31;
-          int n = left < 32 - bi ? left : 32 - bi;
-          uint32_t m = n == 32 ? 0xffffffffu : ((1u << n) - 1) << bi;
-          setAvail(avail, wi, m);
-          pos += n;
-          left -= n;
+      // go through same area and clear the bits
+      int pos = scanBits(start, slots, [&](int i, uint32_t m) {
+        // clear the bits atomically
+        return atomicBitClear(&avail[i], m);
+      });
+      if (pos >= 0) {
+        // failed to clear bits, so rollback the ones we already cleared
+        scanBits(start, pos - start, [&](int i, uint32_t m) {
+          setAvail(avail, i, m);
+          return true;
+        });
+        if (!didRetry) {
+          didRetry = true;
+          goto retry;
         }
-        return mask | start;
+        return -1;
       }
+      return mask | start;
     }
   }
-
   return -1;
 }
 
@@ -124,15 +128,10 @@ VramObj &VramObj::free(int16_t handle) {
   int size = tw * th;
   if (VramObj::is256(handle)) size <<= 1;
   int pos = VramObj::tile(handle);
-  while (size) {
-    int i = pos >> 5;
-    int p = pos & 31;
-    int n = size < 32 - p ? size : 32 - p;
-    uint32_t mask = n == 32 ? 0xffffffffu : ((1u << n) - 1) << p;
-    clearAvail(avail, i, mask);
-    pos += n;
-    size -= n;
-  }
+  scanBits(pos, size, [&](int i, uint32_t m) {
+    setAvail(avail, i, m);
+    return true;
+  });
   return *this;
 }
 
@@ -215,7 +214,6 @@ static int randomRun() {
 
 int VramObj::test(bool verbose) {
   g_verbose = verbose;
-  g_doubleAlloc = false;
   g_doubleFree = false;
 
   for (int is256 = 0; is256 < 2; is256++) {
@@ -235,7 +233,6 @@ int VramObj::test(bool verbose) {
           log("vram isn't full when it should be for %dx%d %s\n", w, h, is256 ? "8bpp" : "4bpp");
           return 1;
         }
-        if (g_doubleAlloc) return 1;
       }
     }
   }
@@ -244,6 +241,6 @@ int VramObj::test(bool verbose) {
     if (randomRun()) return 1;
   }
 
-  return g_doubleAlloc || g_doubleFree ? 1 : 0;
+  return g_doubleFree ? 1 : 0;
 }
 #endif

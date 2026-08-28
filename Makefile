@@ -10,15 +10,20 @@ VERSION            := 0
 
 # -----
 
-ROOT_DIR           := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-SRC_DIR            := $(ROOT_DIR)/src
-GBA_DIR            := $(ROOT_DIR)/gba
-DATA_DIR           := $(ROOT_DIR)/data
-TYPES_DIR          := $(ROOT_DIR)/types
-TESTS_DIR          := $(ROOT_DIR)/tests
-XFORM_DIR          := $(ROOT_DIR)/xform
-SCRIPTS_DIR        := $(ROOT_DIR)/scripts
-TGT_DIR            := $(ROOT_DIR)/tgt
+ROOT_DIR           := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
+root-dir            = $(if $(filter .,$(ROOT_DIR)),$(1),$(ROOT_DIR)/$(1))
+SRC_DIR            := $(call root-dir,src)
+GBA_DIR            := $(call root-dir,gba)
+DATA_DIR           := $(call root-dir,data)
+SPRSHEETS_DIR      := $(DATA_DIR)/spritesheets
+TYPES_DIR          := $(call root-dir,types)
+TESTS_DIR          := $(call root-dir,tests)
+XFORM_DIR          := $(call root-dir,xform)
+SCRIPTS_DIR        := $(call root-dir,scripts)
+TGT_DIR            := $(call root-dir,tgt)
+TGT_DATA_DIR       := $(TGT_DIR)/data
+TGT_DATA_SRC_DIR   := $(TGT_DATA_DIR)/data
+TGT_SPRSHEETS_DIR  := $(TGT_DATA_SRC_DIR)/spritesheets
 TGT_TYPES_DIR      := $(TGT_DIR)/types
 TGT_TYPES_SRC_DIR  := $(TGT_TYPES_DIR)/types
 TGT_TYPES_ARM_DIR  := $(TGT_TYPES_DIR)/arm
@@ -39,45 +44,42 @@ GBA_MAP            := $(TGT_DIR)/$(NAME).map
 
 # -----
 
+TESTS_COMMON_CXX_FLAGS := \
+	-Wall                   \
+	-O3                     \
+	-DTESTS                 \
+	-I$(TESTS_DIR)          \
+	-I$(TGT_DATA_DIR)       \
+	-I$(TGT_TYPES_DIR)      \
+	-I$(SRC_DIR)            \
+	-I$(ROOT_DIR)
 TESTS_C            := gcc
 TESTS_CFLAGS       :=     \
-	-Wall                   \
-	-O3                     \
 	-std=gnu23              \
-	-DTESTS                 \
-	-I$(TESTS_DIR)          \
-	-I$(TGT_TYPES_DIR)      \
-	-I$(SRC_DIR)            \
-	-I$(ROOT_DIR)
+	$(TESTS_COMMON_CXX_FLAGS)
 TESTS_CPP          := g++
 TESTS_CPPFLAGS     :=     \
-	-Wall                   \
 	-Wno-unused-function    \
-	-O3                     \
 	-std=gnu++20            \
-	-DTESTS                 \
-	-I$(TESTS_DIR)          \
-	-I$(TGT_TYPES_DIR)      \
-	-I$(SRC_DIR)            \
-	-I$(ROOT_DIR)
+	$(TESTS_COMMON_CXX_FLAGS)
 
 # -----
 
+XFORM_COMMON_CXX_FLAGS := \
+	-Wall                   \
+	-O3                     \
+	-I$(XFORM_DIR)          \
+	-I$(TGT_DATA_DIR)       \
+	-I$(TGT_TYPES_DIR)
 XFORM_C            := gcc
 XFORM_CFLAGS       :=     \
-	-Wall                   \
-	-O3                     \
 	-std=gnu23              \
-	-I$(XFORM_DIR)          \
-	-I$(TGT_TYPES_DIR)
+	$(XFORM_COMMON_CXX_FLAGS)
 XFORM_CPP          := g++
 XFORM_CPPFLAGS     :=     \
-	-Wall                   \
 	-Wno-unused-function    \
-	-O3                     \
 	-std=gnu++20            \
-	-I$(XFORM_DIR)          \
-	-I$(TGT_TYPES_DIR)
+	$(XFORM_COMMON_CXX_FLAGS)
 
 # -----
 
@@ -87,45 +89,37 @@ ARM_COMMON_FLAGS   :=     \
 	-mthumb-interwork       \
 	-ffunction-sections     \
 	-fdata-sections
-ARM_C              := arm-none-eabi-gcc
-ARM_CFLAGS         :=     \
+ARM_COMMON_CXX_FLAGS :=   \
 	-Wall                   \
 	-O3                     \
+	-I$(SRC_DIR)            \
+	-I$(ROOT_DIR)           \
+	-I$(TGT_DATA_DIR)       \
+	-I$(TGT_TYPES_DIR)
+ARM_COMMON_CPP_FLAGS :=   \
+	-Wno-unused-function    \
+	-std=gnu++20            \
+	-fno-exceptions         \
+	-fno-rtti               \
+	-ffreestanding          \
+	-fno-threadsafe-statics
+ARM_C              := arm-none-eabi-gcc
+ARM_CFLAGS         :=     \
 	-std=gnu23              \
 	-mthumb                 \
 	$(ARM_COMMON_FLAGS)     \
-	-I$(SRC_DIR)            \
-	-I$(ROOT_DIR)           \
-	-I$(TGT_TYPES_DIR)
+	$(ARM_COMMON_CXX_FLAGS)
 ARM_CPP            := arm-none-eabi-g++
 ARM_CPPFLAGS       :=     \
-	-Wall                   \
-	-Wno-unused-function    \
-	-O3                     \
-	-std=gnu++20            \
-	-fno-exceptions         \
-	-fno-rtti               \
-	-ffreestanding          \
-	-fno-threadsafe-statics \
 	-mthumb                 \
 	$(ARM_COMMON_FLAGS)     \
-	-I$(SRC_DIR)            \
-	-I$(ROOT_DIR)           \
-	-I$(TGT_TYPES_DIR)
+	$(ARM_COMMON_CXX_FLAGS) \
+	$(ARM_COMMON_CPP_FLAGS)
 ARM_IWRAM_CPPFLAGS :=     \
-	-Wall                   \
-	-Wno-unused-function    \
-	-O3                     \
-	-std=gnu++20            \
-	-fno-exceptions         \
-	-fno-rtti               \
-	-ffreestanding          \
-	-fno-threadsafe-statics \
 	-marm                   \
 	$(ARM_COMMON_FLAGS)     \
-	-I$(SRC_DIR)            \
-	-I$(ROOT_DIR)           \
-	-I$(TGT_TYPES_DIR)
+	$(ARM_COMMON_CXX_FLAGS) \
+	$(ARM_COMMON_CPP_FLAGS)
 ARM_ASFLAGS        :=     \
 	-x assembler-with-cpp   \
 	-mthumb                 \
@@ -167,9 +161,9 @@ dump: $(GBA_DUMP)
 
 # -----
 
-TYPELIB_HPP        := $(TGT_TYPES_SRC_DIR)/typelib.hpp
-TYPELIB_CPP        := $(TGT_TYPES_SRC_DIR)/typelib.cpp
-TYPELIB_JS         := $(TGT_TYPES_SRC_DIR)/typelib.js
+TYPELIB_HPP        := $(TGT_TYPES_DIR)/typelib.hpp
+TYPELIB_CPP        := $(TGT_TYPES_DIR)/typelib.cpp
+TYPELIB_JS         := $(TGT_TYPES_DIR)/typelib.js
 TYPELIB_ARM_OBJ    := $(TGT_TYPES_ARM_DIR)/typelib.cpp.o
 TYPELIB_TESTS_OBJ  := $(TGT_TYPES_TESTS_DIR)/typelib.cpp.o
 TYPELIB_XFORM_OBJ  := $(TGT_TYPES_XFORM_DIR)/typelib.cpp.o
@@ -276,6 +270,56 @@ $(XFORM): $(XFORM_OBJS)
 
 # -----
 
+PALETTE_BIN        := $(TGT_DATA_SRC_DIR)/palette.bin
+PALETTE_HPP        := $(PALETTE_BIN:.bin=.hpp)
+PALETTE_CPP        := $(PALETTE_BIN:.bin=.cpp)
+PALETTE_OBJ        := $(PALETTE_CPP:.cpp=.cpp.o)
+PALETTE_PNGS       := \
+	$(shell find $(SPRSHEETS_DIR) -type f -name '*.png')
+
+$(PALETTE_BIN): $(PALETTE_PNGS) $(XFORM)
+	@mkdir -p $(@D)
+	$(XFORM) palette256 -o $(PALETTE_BIN) $(PALETTE_PNGS)
+
+$(PALETTE_HPP) $(PALETTE_CPP): $(SCRIPTS_DIR)/embed.ts
+	@mkdir -p $(@D)
+	node $(SCRIPTS_DIR)/embed.ts -o $(PALETTE_HPP) -o $(PALETTE_CPP) -n $(TGT_DATA_DIR) $(PALETTE_BIN)
+
+$(PALETTE_OBJ): $(PALETTE_CPP) $(PALETTE_BIN)
+	@mkdir -p $(@D)
+	$(ARM_CPP) $(ARM_CPPFLAGS) -MMD -MP -c -o $@ $<
+
+# -----
+
+SPRSHEETS_PNG      := $(shell find $(SPRSHEETS_DIR) -type f -name '*.png')
+SPRSHEETS_BIN      := $(patsubst $(SPRSHEETS_DIR)/%.png,$(TGT_SPRSHEETS_DIR)/%.bin,$(SPRSHEETS_PNG))
+SPRSHEETS_HPP      := $(patsubst $(SPRSHEETS_DIR)/%.png,$(TGT_SPRSHEETS_DIR)/%.hpp,$(SPRSHEETS_PNG))
+SPRSHEETS_CPP      := $(patsubst $(SPRSHEETS_DIR)/%.png,$(TGT_SPRSHEETS_DIR)/%.cpp,$(SPRSHEETS_PNG))
+SPRSHEETS_OBJS     := $(patsubst $(SPRSHEETS_DIR)/%.png,$(TGT_SPRSHEETS_DIR)/%.cpp.o,$(SPRSHEETS_PNG))
+
+$(TGT_SPRSHEETS_DIR)/%.bin: $(SPRSHEETS_DIR)/%.png $(PALETTE_BIN) $(XFORM)
+	@mkdir -p $(@D)
+	$(XFORM) copyTiles256 -p $(PALETTE_BIN) -o $@ $<
+
+$(TGT_SPRSHEETS_DIR)/%.hpp $(TGT_SPRSHEETS_DIR)/%.cpp: \
+	$(TGT_SPRSHEETS_DIR)/%.bin \
+	$(SCRIPTS_DIR)/embed.ts
+	@mkdir -p $(@D)
+	node $(SCRIPTS_DIR)/embed.ts \
+		-o $(TGT_SPRSHEETS_DIR)/$*.hpp \
+		-o $(TGT_SPRSHEETS_DIR)/$*.cpp \
+		-n $(TGT_DATA_DIR) \
+		$(TGT_SPRSHEETS_DIR)/$*.bin
+
+$(TGT_SPRSHEETS_DIR)/%.cpp.o: \
+	$(TGT_SPRSHEETS_DIR)/%.cpp \
+	$(TGT_SPRSHEETS_DIR)/%.hpp \
+	$(TGT_SPRSHEETS_DIR)/%.bin
+	@mkdir -p $(@D)
+	$(ARM_CPP) $(ARM_CPPFLAGS) -MMD -MP -c -o $@ $<
+
+# -----
+
 SRC_S              := $(shell find $(SRC_DIR) -type f -name '*.s')
 GBA_S              := $(shell find $(GBA_DIR) -type f -name '*.s')
 SRC_C              := $(shell find $(SRC_DIR) -type f -name '*.c')
@@ -294,7 +338,9 @@ ARM_OBJS           := \
 	$(patsubst $(SRC_DIR)/%.cpp,$(TGT_SRC_DIR)/%.cpp.o,$(SRC_CPP)) \
 	$(patsubst $(GBA_DIR)/%.cpp,$(TGT_GBA_DIR)/%.cpp.o,$(GBA_CPP)) \
 	$(TYPELIB_ARM_OBJ) \
-	$(TYPE_ARM_OBJS)
+	$(TYPE_ARM_OBJS) \
+	$(PALETTE_OBJ) \
+	$(SPRSHEETS_OBJS)
 ARM_DEPS           := $(ARM_OBJS:.o=.d)
 
 $(TGT_SRC_DIR)/%.s.o: $(SRC_DIR)/%.s
@@ -329,14 +375,18 @@ $(TGT_GBA_DIR)/%.cpp.o: $(GBA_DIR)/%.cpp
 	@mkdir -p $(@D)
 	$(ARM_CPP) $(ARM_CPPFLAGS) -MMD -MP -c -o $@ $<
 
-$(ARM_OBJS): $(TYPELIB_HPP) $(TYPE_HPP)
+$(ARM_OBJS): \
+	$(TYPELIB_HPP) \
+	$(TYPE_HPP) \
+	$(PALETTE_HPP) \
+	$(SPRSHEETS_HPP)
 
 $(GBA_ELF): $(ARM_OBJS)
 	$(ARM_CPP) -o $@ $(ARM_OBJS) $(ARM_LDFLAGS)
 
 $(GBA_ROM): $(GBA_ELF) $(XFORM)
 	$(ARM_OBJCOPY) -O binary $< $@
-	$(XFORM) gbafix $@ -p -t $(GAME_TITLE) -g $(GAME_CODE) -m $(MAKER_CODE) -v $(VERSION)
+	$(XFORM) gbaFix $@ -p -t $(GAME_TITLE) -g $(GAME_CODE) -m $(MAKER_CODE) -v $(VERSION)
 
 $(GBA_DUMP): $(GBA_ELF)
 	$(ARM_OBJDUMP) -h -C -S $< > $@

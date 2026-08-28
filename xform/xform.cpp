@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: 0BSD
 #include "xform.hpp"
+#include "CmdCopyTiles256.hpp"
 #include "CmdGbaFix.hpp"
 #include "CmdPalette256.hpp"
 #define STB_IMAGE_IMPLEMENTATION
@@ -11,9 +12,11 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
+static CmdCopyTiles256 cmdCopyTiles256;
 static CmdGbaFix cmdGbaFix;
 static CmdPalette256 cmdPalette256;
 static Command *commands[] = {
+  &cmdCopyTiles256,
   &cmdGbaFix,
   &cmdPalette256,
   NULL

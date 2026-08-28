@@ -24,7 +24,7 @@
 //     .y(handle, 10);             // writes to shadow OAM immediately
 //
 //   // second API for more changes (don't have to type handle every time):
-//   oam.handle(handle)            // copies shadow OAM entry to work on
+//   oam.entry(handle)             // copies shadow OAM entry to work on
 //     .x(5)                       // updates copy
 //     .y(10)                      // updates copy...
 //     .tile(5)
@@ -34,7 +34,8 @@
 //   oam.free(handle);             // free the handle when finished
 // }
 //
-// // ...rotation slots are tracked too:
+// Rotation slots are tracked too:
+//
 // int8_t handle = oam.alloc(123); // regular OAM entry
 // int8_t rot = oam.allocRotate(); // rotation index
 // if (rot < 0) {
@@ -50,7 +51,7 @@
 #endif
 #include <stdint.h>
 
-struct OamHandle;
+struct OamEntry;
 
 static inline int oamGetY(uint16_t shadow0) {
   return shadow0 & 0xff;
@@ -198,8 +199,10 @@ struct Oam {
   Oam &reset();
   Oam() { reset(); }
   int8_t alloc(uint8_t priority); // allocates entry; returns handle (0-127) or -1 for out of memory
+  bool isEmpty();
   Oam &free(int8_t handle);
   int8_t allocRotate(); // allocates rotation slot; returns index (0-31) or -1 for out of memory
+  bool isEmptyRotate();
   Oam &freeRotate(int8_t index);
   Oam &priority(int8_t handle, uint8_t priority);
 
@@ -464,7 +467,7 @@ struct Oam {
     shadow[index * 16 + 15] = value;
   }
 
-  inline OamHandle handle(int8_t handle);
+  inline OamEntry entry(int8_t handle);
 
 #ifndef TESTS
   __attribute__((always_inline)) inline void copy() {
@@ -477,14 +480,14 @@ struct Oam {
 #endif
 };
 
-struct OamHandle {
+struct OamEntry {
   Oam &oam;
   int8_t handle;
   uint16_t shadow0;
   uint16_t shadow1;
   uint16_t shadow2;
 
-  OamHandle &priority(uint8_t priority) {
+  OamEntry &priority(uint8_t priority) {
     oam.priority(handle, priority);
     shadow2 = (shadow2 & 0xf3ff) | ((priority >> 6) << 10);
     return *this;
@@ -502,7 +505,7 @@ struct OamHandle {
     return shadow0;
   }
 
-  OamHandle &attr0(uint16_t value) {
+  OamEntry &attr0(uint16_t value) {
     shadow0 = value;
     return *this;
   }
@@ -511,7 +514,7 @@ struct OamHandle {
     return oamGetY(shadow0);
   }
 
-  OamHandle &y(int value) {
+  OamEntry &y(int value) {
     shadow0 = oamSetY(shadow0, value);
     return *this;
   }
@@ -520,7 +523,7 @@ struct OamHandle {
     return oamGetRotateIndex(shadow0, shadow1);
   }
 
-  OamHandle &rotateIndex(int8_t index, bool doubleSize = false) {
+  OamEntry &rotateIndex(int8_t index, bool doubleSize = false) {
     oamSetRotateIndex(&shadow0, &shadow1, index, doubleSize);
     return *this;
   }
@@ -529,7 +532,7 @@ struct OamHandle {
     return oamGetShow(shadow0);
   }
 
-  OamHandle &show(bool value) {
+  OamEntry &show(bool value) {
     shadow0 = oamSetShow(shadow0, value);
     return *this;
   }
@@ -538,7 +541,7 @@ struct OamHandle {
     return oamGetMode(shadow0);
   }
 
-  OamHandle &mode(int value) {
+  OamEntry &mode(int value) {
     shadow0 = oamSetMode(shadow0, value);
     return *this;
   }
@@ -547,7 +550,7 @@ struct OamHandle {
     return oamGetMosaic(shadow0);
   }
 
-  OamHandle &mosaic(bool value) {
+  OamEntry &mosaic(bool value) {
     shadow0 = oamSetMosaic(shadow0, value);
     return *this;
   }
@@ -556,7 +559,7 @@ struct OamHandle {
     return oamGetIs256(shadow0);
   }
 
-  OamHandle &is256(bool value) {
+  OamEntry &is256(bool value) {
     shadow0 = oamSetIs256(shadow0, value);
     return *this;
   }
@@ -565,7 +568,7 @@ struct OamHandle {
     return oamGetObjShape(shadow0);
   }
 
-  OamHandle &objShape(int value) {
+  OamEntry &objShape(int value) {
     shadow0 = oamSetObjShape(shadow0, value);
     return *this;
   }
@@ -578,7 +581,7 @@ struct OamHandle {
     return shadow1;
   }
 
-  OamHandle &attr1(uint16_t value) {
+  OamEntry &attr1(uint16_t value) {
     shadow1 = value;
     return *this;
   }
@@ -587,7 +590,7 @@ struct OamHandle {
     return oamGetX(shadow1);
   }
 
-  OamHandle &x(int value) {
+  OamEntry &x(int value) {
     shadow1 = oamSetX(shadow1, value);
     return *this;
   }
@@ -596,7 +599,7 @@ struct OamHandle {
     return oamGetHFlip(shadow1);
   }
 
-  OamHandle &hFlip(bool value) {
+  OamEntry &hFlip(bool value) {
     shadow1 = oamSetHFlip(shadow1, value);
     return *this;
   }
@@ -605,7 +608,7 @@ struct OamHandle {
     return oamGetVFlip(shadow1);
   }
 
-  OamHandle &vFlip(bool value) {
+  OamEntry &vFlip(bool value) {
     shadow1 = oamSetVFlip(shadow1, value);
     return *this;
   }
@@ -614,7 +617,7 @@ struct OamHandle {
     return oamGetObjSize(shadow1);
   }
 
-  OamHandle &objSize(int value) {
+  OamEntry &objSize(int value) {
     shadow1 = oamSetObjSize(shadow1, value);
     return *this;
   }
@@ -627,7 +630,7 @@ struct OamHandle {
     return shadow2;
   }
 
-  OamHandle &attr2(uint16_t value) {
+  OamEntry &attr2(uint16_t value) {
     shadow2 = value;
     return *this;
   }
@@ -636,7 +639,7 @@ struct OamHandle {
     return oamGetTile(shadow2);
   }
 
-  OamHandle &tile(int value) {
+  OamEntry &tile(int value) {
     shadow2 = oamSetTile(shadow2, value);
     return *this;
   }
@@ -645,12 +648,12 @@ struct OamHandle {
     return oamGetPalette(shadow2);
   }
 
-  OamHandle &palette(int value) {
+  OamEntry &palette(int value) {
     shadow2 = oamSetPalette(shadow2, value);
     return *this;
   }
 
-  OamHandle &fromVramObj(int16_t vramObjHandle) {
+  OamEntry &fromVramObj(int16_t vramObjHandle) {
     shadow0 = (shadow0 & 0x1fff) | ((vramObjHandle & 0x1c00) << 3);
     shadow1 = (shadow1 & 0x3fff) | ((vramObjHandle & 0x6000) << 1);
     shadow2 = (shadow2 & 0xfc00) | (vramObjHandle & 0x03ff);
@@ -665,7 +668,7 @@ struct OamHandle {
   }
 };
 
-inline OamHandle Oam::handle(int8_t handle) {
+inline OamEntry Oam::entry(int8_t handle) {
   int k = handleToIndex[handle] * 4;
   return { *this, handle, shadow[k + 0], shadow[k + 1], shadow[k + 2] };
 }

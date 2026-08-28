@@ -7,13 +7,13 @@
 #include <stdint.h>
 
 CmdGbaFix::CmdGbaFix() {
-  Command::command = "gbafix";
+  Command::command = "gbaFix";
   Command::about = "Fix the GBA header";
 }
 
 void CmdGbaFix::help() {
   printf(
-    "* gbafix <input.gba> [-t title] [-g gamecode] [-m makercode] [-v version] [-p]\n\n"
+    "* gbaFix <input.gba> [-t title] [-g gamecode] [-m makercode] [-v version] [-p]\n\n"
     "Overwrites the GBA header of the input with the provided arguments, then\n"
     "calculates the correct CRC checksum.\n\n"
     "  <input.gba>    File to modify\n"
@@ -25,7 +25,7 @@ void CmdGbaFix::help() {
   );
 }
 
-static int gbafix(
+static int gbaFix(
   const char *input,
   const char *title,
   const char *gamecode,
@@ -142,6 +142,12 @@ int CmdGbaFix::main(int argc, const char **argv) {
     }
   }
 
+  if (!input) {
+    help();
+    fprintf(stderr, "\nMissing input file\n");
+    return 1;
+  }
+
   printf(
     "Fixing GBA header:\n"
     "  input:      %s\n"
@@ -153,7 +159,7 @@ int CmdGbaFix::main(int argc, const char **argv) {
     input, title, gamecode, makercode, version, pad ? "enabled" : "disabled"
   );
 
-  return gbafix(input, title, gamecode, makercode, version, pad);
+  return gbaFix(input, title, gamecode, makercode, version, pad);
 error:
   fprintf(stderr, "\nError: %s\n", err);
   return 1;

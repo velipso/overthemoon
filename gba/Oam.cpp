@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 #include "Oam.hpp"
 #include "util/ctz32.hpp"
+#include "gba/atomic.hpp"
 
 #ifdef TESTS
 #include <random>
@@ -43,12 +44,19 @@ static inline void oamMove(Oam &oam, int dstIndex, int srcIndex) {
 
 int8_t Oam::alloc(uint8_t priority) {
   int8_t handle = -1;
+  bool didRetry = false;
   for (int i = 0; i < 4; i++) {
+retry:
     if (handleAvail[i]) {
       int index = ctz32(handleAvail[i]);
-      handleAvail[i] &= ~(1u << index);
-      handle = index + (i << 5);
-      break;
+      uint32_t mask = 1u << index;
+      if (atomicBitClear(&handleAvail[i], mask)) {
+        handle = (i << 5) + index;
+        break;
+      } else if (!didRetry) {
+        didRetry = true;
+        goto retry;
+      }
     }
   }
   if (handle < 0) return -1;
@@ -73,6 +81,13 @@ int8_t Oam::alloc(uint8_t priority) {
   shadow[insert + 2] = (priority >> 6) << 10; // set GBA priority
   totalEntries++;
   return handle;
+}
+
+bool Oam::isEmpty() {
+  for (int i = 0; i < 4; i++) {
+    if (handleAvail[i] != 0xffffffffu) return false;
+  }
+  return true;
 }
 
 Oam &Oam::priority(int8_t handle, uint8_t priority) {
@@ -181,10 +196,22 @@ Oam &Oam::free(int8_t handle) {
 }
 
 int8_t Oam::allocRotate() {
+  bool didRetry = false;
+retry:
   if (!rotateAvail) return -1;
   int index = ctz32(rotateAvail);
-  rotateAvail &= ~(1u << index);
-  return index;
+  uint32_t mask = 1u << index;
+  if (atomicBitClear(&rotateAvail, mask)) {
+    return index;
+  } else if (!didRetry) {
+    didRetry = true;
+    goto retry;
+  }
+  return -1;
+}
+
+bool Oam::isEmptyRotate() {
+  return rotateAvail == 0xffffffffu;
 }
 
 Oam &Oam::freeRotate(int8_t index) {

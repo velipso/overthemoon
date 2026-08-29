@@ -124,11 +124,10 @@ retry:
   // everything allocated!
   entries[handle]
     .pc(0)
-    .wait(0)
-    .loop(0)
-    .sheet(0)
     .flags(0)
     .xyDirty(1)
+    .repeat(0)
+    .spritesheet(0)
     .stackedWidth(stackedWidth)
     .oamHandle1(oamHandle1)
     .oamHandle2(oamHandle2)

@@ -78,6 +78,10 @@ for (const { outputFile, ext } of outputFiles) {
     ? path.relative(nameDir, inputFile)
     : path.basename(inputFile);
   const identParts = identPath.split(path.sep).filter((p: string) => p !== '.' && p !== '..');
+  const last = identParts.length - 1;
+  if (!identParts[last].startsWith('.')) {
+    identParts[last] = identParts[last].replace(/\.[^\/.]+$/, '');
+  }
   for (let i = 1; i < identParts.length; i++) {
     const sub = identParts[i].split(/[^a-zA-Z0-9_]/g);
     identParts[i] = sub.map((s: string) => `${s.charAt(0).toUpperCase()}${s.substr(1)}`).join('');

@@ -34,15 +34,11 @@ extern "C" void gvmain() {
   int vh = g_vramObj.alloc256(8, 8);
   int oh = g_oam.alloc(0);
 
-  g_vramObj.copy(vh, dataSpritesheetsDigits8x8Bin);
-  g_oam.entry(oh)
-    .attr0(VramObj::oamAttr0(vh))
-    .attr1(VramObj::oamAttr1(vh))
-    .attr2(VramObj::oamAttr2(vh))
-    .done();
+  g_vramObj.copy(vh, dataSpritesheetsDigits8x8);
+  g_oam.show(oh, true).fromVramObj(oh, vh);
 
-  memcpy32((void *)0x05000000, dataPaletteBin, dataPaletteBinSize);
-  memcpy32((void *)0x05000200, dataPaletteBin, dataPaletteBinSize);
+  memcpy32((void *)0x05000000, dataPalette, dataPaletteSize);
+  memcpy32((void *)0x05000200, dataPalette, dataPaletteSize);
 
   int x = 0;
   for (;;) {

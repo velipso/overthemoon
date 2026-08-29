@@ -2,19 +2,21 @@
 struct SprEntry {
   u32 pc;
 
-  u8 wait;
-  u8 loop;
-  u8 sheet;
-  u8 {
+  u16 {
+    u4 wait;
     u1 xyDirty;
     u1 angDirty;
-    u1 hide;
+    u1 visible;
     u1 clone;
-    u1 world;
+    u1 worldSpace;
+    u1 gravityAxisX;
+    u1 fireResult;
     u1 stackedWidth; // for sprites with two OAM/VRAM handles, stacked along width or height?
-    u1 rotateAlloc;
-    u1;
+    u1 jumpCondition;
+    u3;
   } flags;
+  u8 repeat;
+  u8 spritesheet;
 
   i8 oamHandle1;
   i8 oamHandle2; // possibly -1
@@ -23,10 +25,10 @@ struct SprEntry {
 
   // Q8.8
   i16 gravity;
-  i16 offsetX;
-  i16 offsetY;
-  i16 offsetDX;
-  i16 offsetDY;
+  i16 localX;
+  i16 localY;
+  i16 localDX;
+  i16 localDY;
 
   // Q16.0
   i16 originX;
@@ -36,8 +38,9 @@ struct SprEntry {
   i8 rotateOriginY;
   u8 rotateAngle;
   u8 {
-    u6 rotateIndex;
+    u5 rotateIndex;
     u1 rotateHFlip;
     u1 rotateVFlip;
+    u1 rotateAlloc;
   } rotateFlags;
 };

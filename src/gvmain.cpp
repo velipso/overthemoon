@@ -4,6 +4,7 @@
 #include "types/Player.hpp"
 #include "data/palette.hpp"
 #include "data/spritesheets/digits.8x8.hpp"
+#include "data/animations.hpp"
 
 static Oam g_oam;
 static VramObj g_vramObj;

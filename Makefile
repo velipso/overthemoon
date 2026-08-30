@@ -270,6 +270,21 @@ $(XFORM): $(XFORM_OBJS)
 
 # -----
 
+ANIMATIONS         := $(DATA_DIR)/animations.js
+ANIMATIONS_HPP     := $(TGT_DATA_SRC_DIR)/animations.hpp
+ANIMATIONS_CPP     := $(TGT_DATA_SRC_DIR)/animations.cpp
+ANIMATIONS_OBJ     := $(ANIMATIONS_CPP:.cpp=.cpp.o)
+
+$(ANIMATIONS_HPP) $(ANIMATIONS_CPP): $(ANIMATIONS) $(SCRIPTS_DIR)/animations.js
+	@mkdir -p $(@D)
+	node $(ANIMATIONS) -o $(ANIMATIONS_HPP) -o $(ANIMATIONS_CPP)
+
+$(ANIMATIONS_OBJ): $(ANIMATIONS_CPP)
+	@mkdir -p $(@D)
+	$(ARM_CPP) $(ARM_CPPFLAGS) -MMD -MP -c -o $@ $<
+
+# -----
+
 PALETTE_BIN        := $(TGT_DATA_SRC_DIR)/palette.bin
 PALETTE_HPP        := $(PALETTE_BIN:.bin=.hpp)
 PALETTE_CPP        := $(PALETTE_BIN:.bin=.cpp)
@@ -339,6 +354,7 @@ ARM_OBJS           := \
 	$(patsubst $(GBA_DIR)/%.cpp,$(TGT_GBA_DIR)/%.cpp.o,$(GBA_CPP)) \
 	$(TYPELIB_ARM_OBJ) \
 	$(TYPE_ARM_OBJS) \
+	$(ANIMATIONS_OBJ) \
 	$(PALETTE_OBJ) \
 	$(SPRSHEETS_OBJS)
 ARM_DEPS           := $(ARM_OBJS:.o=.d)
@@ -378,6 +394,7 @@ $(TGT_GBA_DIR)/%.cpp.o: $(GBA_DIR)/%.cpp
 $(ARM_OBJS): \
 	$(TYPELIB_HPP) \
 	$(TYPE_HPP) \
+	$(ANIMATIONS_HPP) \
 	$(PALETTE_HPP) \
 	$(SPRSHEETS_HPP)
 

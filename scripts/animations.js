@@ -1,4 +1,19 @@
 // SPDX-License-Identifier: 0BSD
+import { pathToFileURL } from 'node:url';
+import path from 'path';
+import fs from 'fs';
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  console.error(
+    `This script is intended to be used as a library.\n\n` +
+    `Instead of running it directly, a separate data/animations.js file should\n` +
+    `import it, and use the API to define all animations.\n\n` +
+    `Then, running data/animations.js will generate the HPP/CPP files from the\n` +
+    `definitions.`
+  );
+  process.exit(1);
+}
+
 const bodyStack = [];
 const animations = [];
 const spritesheets = [];
@@ -63,7 +78,61 @@ function validateCondition(condition) {
   }
 }
 
-function finish() {
+function start() {
+  const args = process.argv.splice(2);
+  let outputHPP = null;
+  let outputCPP = null;
+  let verbose = false;
+
+  const usage = (err) => {
+    const input = process.argv[1];
+    const script = path.join(path.basename(path.dirname(input)), path.basename(input));
+    console.log(
+      `node ${script} -o <output.hpp> -o <output.cpp>\n\n` +
+      `Generates animation code from definitions in input script.\n\n` +
+      `-o <output.hpp>   The output HPP file\n` +
+      `-o <output.cpp>   The output CPP file\n` +
+      `-v                Verbose mode`
+    );
+    if (err) {
+      console.error(`\nError: %s`, err);
+    }
+    process.exit(err ? 1 : 0);
+  };
+
+  if (args.length <= 0) {
+    usage();
+  }
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '-o') {
+      i++;
+      if (i >= args.length) {
+        usage('Missing output file after -o');
+      }
+      const ext = path.extname(args[i]);
+      if (ext === '.hpp') {
+        if (outputHPP) {
+          usage('Cannot specify multiple .hpp output files');
+        }
+        outputHPP = args[i];
+      } else if (ext === '.cpp') {
+        if (outputCPP) {
+          usage('Cannot specify multiple .cpp output files');
+        }
+        outputCPP = args[i];
+      }
+    } else if (args[i] === '-v') {
+      verbose = true;
+    } else {
+      usage(`Unknown argument: ${args[i]}`);
+    }
+  }
+
+  return { verbose, outputHPP, outputCPP };
+}
+
+function finish({ verbose, outputHPP, outputCPP }) {
   // validate jumpToAnimations
   for (const { name, unknownError } of jumpAnimations) {
     if (!animations.some(a => a.name === name)) {
@@ -201,9 +270,11 @@ function finish() {
   };
 
   const animationIndex = {};
+  const indexToAnimation = new Map();
   for (const { name, body } of animations) {
     currentAnimationName = name;
     animationIndex[name] = out.length;
+    indexToAnimation.set(out.length, name);
     const walk = (lines) => {
       for (const line of lines) {
         switch (line.kind) {
@@ -341,7 +412,118 @@ function finish() {
     walk(body);
   }
 
-  console.log(animationIndex, out.length);
+  if (verbose) {
+    let lastIndex = false;
+    const pushIndex = (name, index) => {
+      if (lastIndex !== false) {
+        console.log(lastIndex.name, '=>', index - lastIndex.index, 'instructions');
+      }
+      lastIndex = { name, index };
+    };
+    for (const { name, body } of animations) {
+      pushIndex(name, animationIndex[name]);
+    }
+    pushIndex('', out.length);
+    console.log('Total size:', out.length, 'instructions (' + (out.length * 2) + ' bytes)');
+  }
+
+  if (verbose || outputHPP) {
+    if (verbose) console.log(`\nOutput HPP: ${outputHPP}`);
+    let hpp = [
+      `// generated via scripts/animations.js`,
+      `#pragma once`,
+      `#include <stdint.h>`,
+      ``,
+      `struct SprEntry;`,
+      `typedef bool (*f_animFireHandler)(SprEntry &spr);`,
+      ``,
+      `namespace AnimData {`,
+      `  extern const f_animFireHandler handlers[];`,
+      `  extern const uint8_t *const spritesheets[];`,
+      `  alignas(4) extern const uint16_t data[];`,
+      `}`,
+      ``,
+      `namespace Anim {`,
+    ];
+
+    for (const { name } of animations) {
+      hpp.push(`  static constexpr uint32_t ${name} = ${animationIndex[name]};`);
+    }
+
+    hpp.push('}');
+    hpp.push('');
+    hpp = hpp.join('\n');
+    if (verbose) console.log(hpp);
+    if (outputHPP) {
+      fs.writeFileSync(outputHPP, hpp, 'utf8');
+    }
+  }
+
+  if (verbose || outputCPP) {
+    if (verbose) console.log(`\nOutput CPP: ${outputCPP}`);
+    let cpp = [`// generated via scripts/animations.js`];
+    if (outputHPP) {
+      cpp.push(`#include "${path.relative(path.dirname(outputCPP), outputHPP)}"`);
+    } else {
+      cpp.push(`#include "animations.hpp"`);
+    }
+    if (handlers.length > 0) {
+      cpp.push(``);
+      for (const h of handlers) {
+        cpp.push(`extern bool ${h}(SprEntry &spr);`);
+      }
+    }
+    if (spritesheets.length > 0) {
+      cpp.push(``);
+      for (const s of spritesheets) {
+        cpp.push(`extern const uint8_t ${s}[];`);
+      }
+    }
+    cpp.push(
+      ``,
+      `namespace AnimData {`,
+      `  const f_animFireHandler handlers[] = {`,
+    );
+    for (const h of handlers) {
+      cpp.push(`    ${h},`);
+    }
+    cpp.push(
+      `    0`,
+      `  };`,
+      ``,
+      `  const uint8_t *const spritesheets[] = {`,
+    );
+    for (const s of spritesheets) {
+      cpp.push(`    ${s},`);
+    }
+    cpp.push(
+      `    0`,
+      `  };`,
+      ``,
+      `  alignas(4) const uint16_t data[] = {`,
+    );
+    for (let i = 0; i < out.length; i++) {
+      const name = indexToAnimation.get(i);
+      if (name) cpp.push(`    // ${name}`, `   `);
+      const str = `0x${`000${out[i].toString(16)}`.substr(-4)},`;
+      if (cpp[cpp.length - 1].length + str.length < 78) {
+        cpp[cpp.length - 1] += ` ${str}`;
+      } else {
+        cpp.push(`    ${str}`);
+      }
+    }
+    if (out.length % 2) {
+      cpp.push(`    0,`);
+    }
+    cpp.push(`  };`, `}`);
+
+    cpp.push('');
+    cpp = cpp.join('\n');
+    if (verbose) console.log(cpp);
+    if (outputCPP) {
+      fs.writeFileSync(outputCPP, cpp, 'utf8');
+    }
+  }
 }
 
 //
@@ -355,8 +537,9 @@ function define(func) {
     }
     calledDefine = true;
     insideDefine = true;
+    const config = start();
     func();
-    finish();
+    finish(config);
   } catch (err) {
     if (err instanceof AnimationError) {
       const frame = err.stack

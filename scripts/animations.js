@@ -57,6 +57,9 @@ const isWorldSpace = Symbol('isWorldSpace');
 const isGravityAxisX = Symbol('isGravityAxisX');
 const isRotated = Symbol('isRotated');
 const isFireResult = Symbol('isFireResult');
+const isMosaic = Symbol('isMosaic');
+const isHFlip = Symbol('isHFlip');
+const isVFlip = Symbol('isVFlip');
 
 function validateCondition(condition) {
   let c = condition;
@@ -71,10 +74,15 @@ function validateCondition(condition) {
     c !== isGravityAxisX &&
     c !== isRotated &&
     c !== isFireResult &&
-    !(c && typeof c === 'object' && 'random' in c)
+    c !== isMosaic &&
+    c !== isHFlip &&
+    c !== isVFlip &&
+    !(c && typeof c === 'object' && 'isRandom' in c) &&
+    !(c && typeof c === 'object' && 'isMode' in c)
   ) {
     throw new AnimationError('Invalid condition; expecting isTrue, isFalse, isClone, isVisible, ' +
-      'isWorldSpace, isGravityAxisX, isRotated, isFireResult, or isRandom(odds)');
+      'isWorldSpace, isGravityAxisX, isRotated, isFireResult, isMosaic, isHFlip, isVFlip, ' +
+      'isRandom(odds), or isMode(mode)');
   }
 }
 
@@ -147,8 +155,6 @@ function finish({ verbose, outputHPP, outputCPP }) {
   const i4 = v => (v < 0 ? 16 + v : v) & 15;
   const u8 = v => v & 255;
   const i8 = v => (v < 0 ? 256 + v : v) & 255;
-  const uang = v => (v / 3) & 255;
-  const iang = v => (v < 0 ? 256 + (v / 3) : v / 3) & 255;
   const u12 = v => v & 4095;
   const i12 = v => (v < 0 ? 4096 + v : v) & 4095;
   let currentAnimationName = '?';
@@ -160,50 +166,60 @@ function finish({ verbose, outputHPP, outputCPP }) {
   };
 
   // no params
-  const STOP        = () => add(0x0000);
-  const DESTROY     = () => add(0x0001);
-  const ANGOFF      = () => add(0x0002);
-  const WORLDON     = () => add(0x0003);
-  const WORLDOFF    = () => add(0x0004);
-  const VISIBLEON   = () => add(0x0005);
-  const VISIBLEOFF  = () => add(0x0006);
-  const GRAVXON     = () => add(0x0007);
-  const GRAVXOFF    = () => add(0x0008);
-  // 0x0009-0x000f reserved
+  const STOP        = () => add(0x0000); // do not change encoding!
+  const DESTROY     = () => add(0x0001); // do not change encoding!
+  const VISIBLEON   = () => add(0x0002);
+  const VISIBLEOFF  = () => add(0x0003);
+  const WORLDON     = () => add(0x0004);
+  const WORLDOFF    = () => add(0x0005);
+  const GRAVXON     = () => add(0x0006);
+  const GRAVXOFF    = () => add(0x0007);
+  const MOSAICON    = () => add(0x0008);
+  const MOSAICOFF   = () => add(0x0009);
+  const HFLIPON     = () => add(0x000a);
+  const HFLIPOFF    = () => add(0x000b);
+  const VFLIPON     = () => add(0x000c);
+  const VFLIPOFF    = () => add(0x000d);
+  const ANGOFF      = () => add(0x000e);
+  // 0x000f reserved
 
-  const ISTRUE      = () => add(0x0010);
-  const ISREPEAT    = () => add(0x0011);
-  const ISCLONE     = () => add(0x0012);
-  const ISVISIBLE   = () => add(0x0013);
-  const ISWORLD     = () => add(0x0014);
-  const ISGRAVX     = () => add(0x0015);
-  const ISROTATED   = () => add(0x0016);
-  const ISFIRERES   = () => add(0x0017);
-  // 0x0018-0x001f reserved
+  const ISTRUE      = () => add(0x0020);
+  const ISREPEAT    = () => add(0x0021);
+  const ISCLONE     = () => add(0x0022);
+  const ISVISIBLE   = () => add(0x0023);
+  const ISWORLD     = () => add(0x0024);
+  const ISGRAVX     = () => add(0x0025);
+  const ISROTATED   = () => add(0x0026);
+  const ISFIRERES   = () => add(0x0027);
+  const ISMOSAIC    = () => add(0x0028);
+  const ISHFLIP     = () => add(0x0029);
+  const ISVFLIP     = () => add(0x002a);
+  // 0x002b-0x003f reserved
 
   // 4-bit params
-  const FLIP        = v => add(0x0020 | u4(v));
-  const FX          = v => add(0x0030 | u4(v));
-  const WAIT        = v => add(0x0040 | u4(v));
-  const REPEAT      = v => add(0x0050 | u4(v));
-  // 0x0060-0x00f0 reserved
+  const MODE        = v => add(0x0040 | u4(v));
+  const ISMODE      = v => add(0x0050 | u4(v));
+  const WAIT        = v => add(0x0060 | u4(v));
+  const REPEAT      = v => add(0x0070 | u4(v));
+  // 0x0080-0x00f0 reserved
 
   // 8-bit params
-  const RANDOM8     = v => add(0x0100 | v);
-  const SPRSHEET    = v => add(0x0200 | u8(v));
-  const COPY        = v => add(0x0300 | u8(v));
-  const JUMPANIM    = v => add(0x0400 | u8(v));
-  const ISRANDOM    = v => add(0x0500 | u8(v));
-  const PRIORITYSET = v => add(0x0600 | u8(v));
-  const PRIORITYADD = v => add(0x0700 | i8(v));
-  const ROTATEOX    = v => add(0x0800 | i8(v));
-  const ROTATEOY    = v => add(0x0900 | i8(v));
-  const ANGSET      = v => add(0x0a00 | uang(v));
-  const ANGADD      = v => add(0x0b00 | iang(v));
-  // 0x0c00-0x0f00 reserved
+  const RANDOMU8    = v => add(0x0100 | u8(v));
+  const RANDOMI8    = v => add(0x0200 | i8(v));
+  const SPRSHEET    = v => add(0x0300 | u8(v));
+  const COPY        = v => add(0x0400 | u8(v));
+  const JUMPANIM    = v => add(0x0500 | u8(v));
+  const ISRANDOM    = v => add(0x0600 | u8(v));
+  const PRIORITYSET = v => add(0x0700 | u8(v));
+  const PRIORITYADD = v => add(0x0800 | i8(v));
+  const ROTATEOX    = v => add(0x0900 | i8(v));
+  const ROTATEOY    = v => add(0x0a00 | i8(v));
+  const ANGSET      = v => add(0x0b00 | u8(v));
+  const ANGADD      = v => add(0x0c00 | i8(v));
+  // 0x0d00-0x0f00 reserved
 
   // 12-bit params
-  const RANDOM12    = v => add(0x1000 | v);
+  const RANDOMI12   = v => add(0x1000 | i12(v));
   const GRAVSET     = v => add(0x2000 | i12(v));
   const GRAVADD     = v => add(0x3000 | i12(v));
   const LOCXSET     = v => add(0x4000 | i12(v));
@@ -251,8 +267,10 @@ function finish({ verbose, outputHPP, outputCPP }) {
     if (typeof c === 'object' && 'not' in c) {
       return !COND(c.not);
     }
-    if (typeof c === 'object' && 'random' in c) {
-      ISRANDOM(c.random);
+    if (typeof c === 'object' && 'isRandom' in c) {
+      ISRANDOM(c.isRandom);
+    } else if (typeof c === 'object' && 'isMode' in c) {
+      ISMODE(c.isMode);
     } else {
       switch (c) {
         case isTrue:         ISTRUE(); break;
@@ -262,12 +280,19 @@ function finish({ verbose, outputHPP, outputCPP }) {
         case isGravityAxisX: ISGRAVX(); break;
         case isRotated:      ISROTATED(); break;
         case isFireResult:   ISFIRERES(); break;
+        case isMosaic:       ISMOSAIC(); break;
+        case isHFlip:        ISHFLIP(); break;
+        case isVFlip:        ISVFLIP(); break;
         default:
           throw new Error(`Unknown condition: ${c}`);
       }
     }
     return true;
   };
+
+  // add global STOP and DESTROY at top of bytecode
+  STOP();
+  DESTROY();
 
   const animationIndex = {};
   const indexToAnimation = new Map();
@@ -285,10 +310,12 @@ function finish({ verbose, outputHPP, outputCPP }) {
           case 'worldSpace':   line.enable ? WORLDON() : WORLDOFF(); break;
           case 'visible':      line.enable ? VISIBLEON() : VISIBLEOFF(); break;
           case 'gravityAxisX': line.enable ? GRAVXON() : GRAVXOFF(); break;
+          case 'mosaic':       line.enable ? MOSAICON() : MOSAICOFF(); break;
+          case 'hFlip':        line.enable ? HFLIPON() : HFLIPOFF(); break;
+          case 'vFlip':        line.enable ? VFLIPON() : VFLIPOFF(); break;
 
           // 4-bit params
-          case 'flip':         FLIP((line.horizontal ? 1 : 0) | (line.vertical ? 2 : 0)); break;
-          case 'fx':           FX((line.mosaic ? 4 : 0) | line.mode); break;
+          case 'mode':         MODE(line.mode); break;
           case 'wait': {
             let left = line.frames;
             while (left > 0) {
@@ -299,7 +326,7 @@ function finish({ verbose, outputHPP, outputCPP }) {
             break;
           }
           case 'repeat': {
-            let left = line.times;
+            let left = line.times - 1;
             while (left > 0) {
               const value = Math.min(16, left);
               REPEAT(value - 1);
@@ -322,13 +349,13 @@ function finish({ verbose, outputHPP, outputCPP }) {
           case 'rotateOriginY':       ROTATEOY(line.value); break;
           case 'angleSet':            ANGSET(line.value); break;
           case 'angleAdd':            ANGADD(line.value); break;
-          case 'copyRandom':          RANDOM8(u8(line.low)); COPY(line.high); break;
-          case 'prioritySetRandom':   RANDOM8(u8(line.low)); PRIORITYSET(line.high); break;
-          case 'priorityAddRandom':   RANDOM8(i8(line.low)); PRIORITYADD(line.high); break;
-          case 'rotateOriginXRandom': RANDOM8(i8(line.low)); ROTATEOX(line.high); break;
-          case 'rotateOriginYRandom': RANDOM8(i8(line.low)); ROTATEOY(line.high); break;
-          case 'angleSetRandom':      RANDOM8(uang(line.low)); ANGSET(line.high); break;
-          case 'angleAddRandom':      RANDOM8(iang(line.low)); ANGADD(line.high); break;
+          case 'copyRandom':          RANDOMU8(line.low); COPY(line.high); break;
+          case 'prioritySetRandom':   RANDOMU8(line.low); PRIORITYSET(line.high); break;
+          case 'priorityAddRandom':   RANDOMI8(line.low); PRIORITYADD(line.high); break;
+          case 'rotateOriginXRandom': RANDOMI8(line.low); ROTATEOX(line.high); break;
+          case 'rotateOriginYRandom': RANDOMI8(line.low); ROTATEOY(line.high); break;
+          case 'angleSetRandom':      RANDOMU8(line.low); ANGSET(line.high); break;
+          case 'angleAddRandom':      RANDOMI8(line.low); ANGADD(line.high); break;
 
           // 12-bit params
           case 'gravitySet':          GRAVSET(line.value); break;
@@ -341,16 +368,16 @@ function finish({ verbose, outputHPP, outputCPP }) {
           case 'localDXAdd':          LOCDXADD(line.value); break;
           case 'localDYSet':          LOCDYSET(line.value); break;
           case 'localDYAdd':          LOCDYADD(line.value); break;
-          case 'gravitySetRandom':    RANDOM12(i12(line.low)); GRAVSET(line.high); break;
-          case 'gravityAddRandom':    RANDOM12(i12(line.low)); GRAVADD(line.high); break;
-          case 'localXSetRandom':     RANDOM12(i12(line.low)); LOCXSET(line.high); break;
-          case 'localXAddRandom':     RANDOM12(i12(line.low)); LOCXADD(line.high); break;
-          case 'localYSetRandom':     RANDOM12(i12(line.low)); LOCYSET(line.high); break;
-          case 'localYAddRandom':     RANDOM12(i12(line.low)); LOCYADD(line.high); break;
-          case 'localDXSetRandom':    RANDOM12(i12(line.low)); LOCDXSET(line.high); break;
-          case 'localDXAddRandom':    RANDOM12(i12(line.low)); LOCDXADD(line.high); break;
-          case 'localDYSetRandom':    RANDOM12(i12(line.low)); LOCDYSET(line.high); break;
-          case 'localDYAddRandom':    RANDOM12(i12(line.low)); LOCDYADD(line.high); break;
+          case 'gravitySetRandom':    RANDOMI12(line.low); GRAVSET(line.high); break;
+          case 'gravityAddRandom':    RANDOMI12(line.low); GRAVADD(line.high); break;
+          case 'localXSetRandom':     RANDOMI12(line.low); LOCXSET(line.high); break;
+          case 'localXAddRandom':     RANDOMI12(line.low); LOCXADD(line.high); break;
+          case 'localYSetRandom':     RANDOMI12(line.low); LOCYSET(line.high); break;
+          case 'localYAddRandom':     RANDOMI12(line.low); LOCYADD(line.high); break;
+          case 'localDXSetRandom':    RANDOMI12(line.low); LOCDXSET(line.high); break;
+          case 'localDXAddRandom':    RANDOMI12(line.low); LOCDXADD(line.high); break;
+          case 'localDYSetRandom':    RANDOMI12(line.low); LOCDYSET(line.high); break;
+          case 'localDYAddRandom':    RANDOMI12(line.low); LOCDYADD(line.high); break;
 
           case 'fire': FIRE((i4(line.param) << 8) | u8(line.index)); break;
 
@@ -435,11 +462,12 @@ function finish({ verbose, outputHPP, outputCPP }) {
       `#include <stdint.h>`,
       ``,
       `struct SprEntry;`,
-      `typedef bool (*f_animFireHandler)(SprEntry &spr);`,
+      `typedef bool (*f_animFireHandler)(int8_t handle, SprEntry &spr, int param);`,
       ``,
       `namespace AnimData {`,
       `  extern const f_animFireHandler handlers[];`,
       `  extern const uint8_t *const spritesheets[];`,
+      `  extern const uint32_t jumpAnimations[];`,
       `  alignas(4) extern const uint16_t data[];`,
       `}`,
       ``,
@@ -470,7 +498,7 @@ function finish({ verbose, outputHPP, outputCPP }) {
     if (handlers.length > 0) {
       cpp.push(``);
       for (const h of handlers) {
-        cpp.push(`extern bool ${h}(SprEntry &spr);`);
+        cpp.push(`extern bool ${h}(int8_t handle, SprEntry &spr, int param);`);
       }
     }
     if (spritesheets.length > 0) {
@@ -484,23 +512,42 @@ function finish({ verbose, outputHPP, outputCPP }) {
       `namespace AnimData {`,
       `  const f_animFireHandler handlers[] = {`,
     );
-    for (const h of handlers) {
-      cpp.push(`    ${h},`);
+    if (handlers.length > 0) {
+      for (const h of handlers) {
+        cpp.push(`    ${h},`);
+      }
+    } else {
+      cpp.push(`    0 // empty`);
     }
     cpp.push(
-      `    0`,
       `  };`,
       ``,
       `  const uint8_t *const spritesheets[] = {`,
     );
-    for (const s of spritesheets) {
-      cpp.push(`    ${s},`);
+    if (spritesheets.length > 0) {
+      for (const s of spritesheets) {
+        cpp.push(`    ${s},`);
+      }
+    } else {
+      cpp.push(`    0 // empty`);
     }
     cpp.push(
-      `    0`,
+      `  };`,
+      ``,
+      `  const uint32_t jumpAnimations[] = {`,
+    );
+    if (jumpAnimations.length > 0) {
+      for (const { name } of jumpAnimations) {
+        cpp.push(`    Anim::${name},`);
+      }
+    } else {
+      cpp.push(`    0 // empty`);
+    }
+    cpp.push(
       `  };`,
       ``,
       `  alignas(4) const uint16_t data[] = {`,
+      `  // global STOP and DESTROY`,
     );
     for (let i = 0; i < out.length; i++) {
       const name = indexToAnimation.get(i);
@@ -513,7 +560,7 @@ function finish({ verbose, outputHPP, outputCPP }) {
       }
     }
     if (out.length % 2) {
-      cpp.push(`    0,`);
+      cpp.push(`    0 // empty`);
     }
     cpp.push(`  };`, `}`);
 
@@ -628,23 +675,44 @@ function gravityAxisX(enable) {
   push({ kind: 'gravityAxisX', enable });
 }
 
-function flip(horizontal, vertical) {
+function mosaic(enable) {
   if (!insideDefine) throw new Error(DEFINE_ERROR);
-  if (typeof horizontal !== 'boolean' || typeof vertical !== 'boolean') {
-    throw new AnimationError('Expecting: flip(horizontal: boolean, vertical: boolean);');
+  if (typeof enable !== 'boolean') {
+    throw new AnimationError('Expecting: mosaic(enable: boolean);');
   }
-  push({ kind: 'flip', horizontal, vertical });
+  push({ kind: 'mosaic', enable });
 }
 
-function fx(mosaic, mode) {
+function hFlip(enable) {
   if (!insideDefine) throw new Error(DEFINE_ERROR);
-  if (
-    typeof mosaic !== 'boolean' ||
-    !Number.isInteger(mode) || mode < 0 || mode > 3
-  ) {
-    throw new AnimationError('Expecting: fx(mosaic: boolean, mode: 0-3);');
+  if (typeof enable !== 'boolean') {
+    throw new AnimationError('Expecting: mosaic(enable: boolean);');
   }
-  push({ kind: 'fx', mosaic, mode });
+  push({ kind: 'hFlip', enable });
+}
+
+function vFlip(enable) {
+  if (!insideDefine) throw new Error(DEFINE_ERROR);
+  if (typeof enable !== 'boolean') {
+    throw new AnimationError('Expecting: mosaic(enable: boolean);');
+  }
+  push({ kind: 'vFlip', enable });
+}
+
+function mode(mode) {
+  if (!insideDefine) throw new Error(DEFINE_ERROR);
+  if (!Number.isInteger(mode) || mode < 0 || mode > 3) {
+    throw new AnimationError('Expecting: mode(mode: 0-3);');
+  }
+  push({ kind: 'mode', mode });
+}
+
+function isMode(mode) {
+  if (!insideDefine) throw new Error(DEFINE_ERROR);
+  if (!Number.isInteger(mode) || mode < 0 || mode > 3) {
+    throw new AnimationError('Expecting: mode(mode: 0-3);');
+  }
+  return { isMode: mode };
 }
 
 function wait(frames) {
@@ -735,7 +803,7 @@ function validateRandomInt(value, validLow, validHigh, unit = 1) {
       }
       throw new AnimationError(`Expecting: random(count: ${range})`);
     }
-    return { low: 0, high: value.count - unit };
+    return { low: 0, high: value.count / unit - 1 };
   } else { // randomRange
     if (
       !Number.isInteger(value.low) || value.low < validLow || value.low > validHigh ||
@@ -749,7 +817,7 @@ function validateRandomInt(value, validLow, validHigh, unit = 1) {
       }
       throw new AnimationError(`Expecting: random(low: ${range}, high: ${range});`);
     }
-    return { low: value.low, high: value.high };
+    return { low: value.low / unit, high: value.high / unit };
   }
 }
 
@@ -778,11 +846,14 @@ function copy(frame) {
 
 function isRandom(odds) {
   if (!insideDefine) throw new Error(DEFINE_ERROR);
-  odds = Math.floor(odds * 256);
-  if (!Number.isFinite(odds) || odds <= 0 || odds > 255) {
+  if (!Number.isFinite(odds)) {
     throw new AnimationError('Expecting: isRandom(odds: 0.004-0.999);');
   }
-  return { random: odds };
+  odds = Math.floor(odds * 256);
+  if (!Number.isInteger(odds) || odds <= 0 || odds > 255) {
+    throw new AnimationError('Expecting: isRandom(odds: 0.004-0.999);');
+  }
+  return { isRandom: odds };
 }
 
 function prioritySet(value) {
@@ -857,7 +928,7 @@ function angleSet(value) {
     if (!Number.isInteger(value) || value < 0 || value > 360 || !Number.isInteger(value / 3)) {
       throw new AnimationError('Expecting: angleSet(value: 0-360 divisible by 3);');
     }
-    push({ kind: 'angleSet', value });
+    push({ kind: 'angleSet', value: value / 3 });
   }
 }
 
@@ -870,7 +941,7 @@ function angleAdd(value) {
     if (!Number.isInteger(value) || value < -360 || value > 360 || !Number.isInteger(value / 3)) {
       throw new AnimationError('Expecting: angleAdd(value: -360-360 divisible by 3);');
     }
-    push({ kind: 'angleAdd', value });
+    push({ kind: 'angleAdd', value: value / 3 });
   }
 }
 
@@ -981,10 +1052,10 @@ function repeat(times, bodyGenerator) {
     throw new AnimationError('Cannot have nested repeat(N, () => { ... });');
   }
   if (
-    !Number.isInteger(times) || times < 2 || times > 255 ||
+    !Number.isInteger(times) || times < 2 || times > 256 ||
     typeof bodyGenerator !== 'function'
   ) {
-    throw new AnimationError('Expecting: repeat(times: 2-255, () => { ... });');
+    throw new AnimationError('Expecting: repeat(times: 2-256, () => { ... });');
   }
   const body = [];
   push({ kind: 'repeat', times, body });
@@ -1109,9 +1180,11 @@ Object.assign(globalThis, {
   angleClear,       // no args
   worldSpace,       // enable: boolean
   gravityAxisX,     // enable: boolean
+  mosaic,           // enable: boolean
   visible,          // enable: boolean
-  flip,             // horizontal: boolean, vertical: boolean
-  fx,               // mosaic: boolean, mode: 0-3
+  hFlip,            // enable: boolean
+  vFlip,            // enable: boolean
+  mode,             // mode: 0-3
   wait,             // frames: 1-1000
   spritesheet,      // symbol: string
   jumpToAnimation,  // name: string
@@ -1147,6 +1220,10 @@ Object.assign(globalThis, {
   isGravityAxisX,   // condition constant
   isRotated,        // condition constant
   isFireResult,     // condition constant
+  isMosaic,         // condition constant
+  isHFlip,          // condition constant
+  isVFlip,          // condition constant
+  isMode,           // mode: 0-3
   isRandom,         // odds: 0.004-0.999
   repeat,           // times: 2-255, body: function
   forever,          // body: function

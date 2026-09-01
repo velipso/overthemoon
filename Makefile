@@ -101,7 +101,6 @@ ARM_COMMON_CPP_FLAGS :=   \
 	-std=gnu++20            \
 	-fno-exceptions         \
 	-fno-rtti               \
-	-ffreestanding          \
 	-fno-threadsafe-statics
 ARM_C              := arm-none-eabi-gcc
 ARM_CFLAGS         :=     \

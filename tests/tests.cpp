@@ -7,7 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#define TESTS_GBA_MEM_IMPL
+#include "gba/mem.hpp"
 #include "gba/util/ctz32.cpp"
+#include "gba/util/sin14.cpp"
 
 static TestBasic basic;
 static TestOam oam;

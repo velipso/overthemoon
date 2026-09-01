@@ -46,9 +46,7 @@
 //   oam.freeRotate(rot);          // free the rotation slot when finished
 // }
 #pragma once
-#ifndef TESTS
-#include "mem.hpp"
-#endif
+#include "gba/mem.hpp"
 #include <stdint.h>
 
 struct OamEntry;
@@ -439,41 +437,70 @@ struct Oam {
     return shadow[index * 16 + 3];
   }
 
-  void PA(int8_t index, int16_t value) {
+  Oam &PA(int8_t index, int16_t value) {
     shadow[index * 16 + 3] = value;
+    return *this;
   }
 
   int16_t PB(int8_t index) {
     return shadow[index * 16 + 7];
   }
 
-  void PB(int8_t index, int16_t value) {
+  Oam &PB(int8_t index, int16_t value) {
     shadow[index * 16 + 7] = value;
+    return *this;
   }
 
   int16_t PC(int8_t index) {
     return shadow[index * 16 + 11];
   }
 
-  void PC(int8_t index, int16_t value) {
+  Oam &PC(int8_t index, int16_t value) {
     shadow[index * 16 + 11] = value;
+    return *this;
   }
 
   int16_t PD(int8_t index) {
     return shadow[index * 16 + 15];
   }
 
-  void PD(int8_t index, int16_t value) {
+  Oam &PD(int8_t index, int16_t value) {
     shadow[index * 16 + 15] = value;
+    return *this;
+  }
+
+  Oam &PABCD(int8_t index, int16_t a, int16_t b, int16_t c, int16_t d) {
+    index *= 16;
+    shadow[index + 3] = a;
+    shadow[index + 7] = b;
+    shadow[index + 11] = c;
+    shadow[index + 15] = d;
+    return *this;
   }
 
   inline OamEntry entry(int8_t handle);
 
-#ifndef TESTS
+  int tileWidth(int8_t handle) {
+    int widths[] = { 1, 2, 4, 8, 2, 4, 4, 8, 1, 1, 2, 4, -1, -1, -1, -1 };
+    return widths[objShape(handle) * 4 + objSize(handle)];
+  }
+
+  int width(int8_t handle) {
+    return tileWidth(handle) << 3;
+  }
+
+  int tileHeight(int8_t handle) {
+    int heights[] = { 1, 2, 4, 8, 1, 1, 2, 4, 2, 4, 4, 8, -1, -1, -1, -1 };
+    return heights[objShape(handle) * 4 + objSize(handle)];
+  }
+
+  int height(int8_t handle) {
+    return tileHeight(handle) << 3;
+  }
+
   __attribute__((always_inline)) inline void copy() {
     memcpy32(reinterpret_cast<uint16_t *>(0x07000000u), shadow, 1024);
   }
-#endif
 
 #ifdef TESTS
   static int test(bool verbose);

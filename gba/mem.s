@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: 0BSD
     .section    .iwram, "ax"
+    .global     memcpy32bytes
+    .global     memcpy64bytes
     .global     memcpy32
     .global     memcpy16
     .global     memcpy8
@@ -8,6 +10,20 @@
     .cpu        arm7tdmi
     .arm
 
+memcpy32bytes:
+    stmfd sp!, {r3-r10}
+    ldmia r1!, {r3-r10}
+    stmia r0!, {r3-r10}
+    ldmfd sp!, {r3-r10}
+    bx    lr
+memcpy64bytes:
+    stmfd sp!, {r3-r10}
+    ldmia r1!, {r3-r10}
+    stmia r0!, {r3-r10}
+    ldmia r1!, {r3-r10}
+    stmia r0!, {r3-r10}
+    ldmfd sp!, {r3-r10}
+    bx    lr
 memcpy32:
     subs  r2, #32
     blt   L3

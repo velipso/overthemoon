@@ -27,9 +27,7 @@
 // }
 //
 #pragma once
-#ifndef TESTS
-#include "mem.hpp"
-#endif
+#include "gba/mem.hpp"
 #include <stdint.h>
 
 struct VramObj {
@@ -154,11 +152,9 @@ struct VramObj {
     return (width(handle) * height(handle)) >> (is256(handle) ? 0 : 1);
   }
 
-#ifndef TESTS
   static __attribute__((always_inline)) inline void copy(int16_t handle, const void *src) {
     memcpy32(addr(handle), src, bytes(handle));
   }
-#endif
 
 #ifdef TESTS
   static int test(bool verbose);

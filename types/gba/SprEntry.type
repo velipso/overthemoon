@@ -4,21 +4,20 @@ struct SprEntry {
 
   u16 {
     u4 wait;
+    u4;
     u1 xyDirty;
     u1 angDirty;
-    u1 visible;
     u1 clone;
     u1 worldSpace;
     u1 gravityAxisX;
     u1 fireResult;
     u1 stackedWidth; // for sprites with two OAM/VRAM handles, stacked along width or height?
     u1 jumpCondition;
-    u3;
   } flags;
   u8 repeat;
   u8 spritesheet;
 
-  i8 oamHandle1;
+  i8 oamHandle1; // -1 when entry is unallocated
   i8 oamHandle2; // possibly -1
   i16 vramObjHandle1;
   i16 vramObjHandle2; // possibly -1

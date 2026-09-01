@@ -9,6 +9,7 @@ define(() => {
         wait(10);
         copy(0);
         wait(10);
+        jumpToAnimation('heroWalkLeft' + (i + 2));
       }
       repeat(2, () => {
         for (let j = 0; j < i * 2; j++) {

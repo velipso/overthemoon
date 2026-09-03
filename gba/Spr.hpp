@@ -2,7 +2,7 @@
 #pragma once
 #include "Oam.hpp"
 #include "VramObj.hpp"
-#include "types/gba/SprEntry.hpp"
+#include "types/gba/Spr.hpp"
 #include <stdint.h>
 
 struct SprCopy {

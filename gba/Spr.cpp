@@ -906,6 +906,7 @@ static int rand(int size) {
 }
 
 int Spr::test(bool verbose) {
+  g_verbose = verbose;
   Oam oam;
   VramObj vramObj;
   Spr spr(oam, vramObj);

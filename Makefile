@@ -47,6 +47,7 @@ GBA_MAP            := $(TGT_DIR)/$(NAME).map
 TESTS_COMMON_CXX_FLAGS := \
 	-Wall                   \
 	-O3                     \
+	-DPLATFORM_HOST         \
 	-DTESTS                 \
 	-I$(TESTS_DIR)          \
 	-I$(TGT_DATA_DIR)       \
@@ -68,6 +69,7 @@ TESTS_CPPFLAGS     :=     \
 XFORM_COMMON_CXX_FLAGS := \
 	-Wall                   \
 	-O3                     \
+	-DPLATFORM_HOST         \
 	-I$(XFORM_DIR)          \
 	-I$(TGT_DATA_DIR)       \
 	-I$(TGT_TYPES_DIR)
@@ -92,6 +94,7 @@ ARM_COMMON_FLAGS   :=     \
 ARM_COMMON_CXX_FLAGS :=   \
 	-Wall                   \
 	-O3                     \
+	-DPLATFORM_GBA          \
 	-I$(SRC_DIR)            \
 	-I$(ROOT_DIR)           \
 	-I$(TGT_DATA_DIR)       \

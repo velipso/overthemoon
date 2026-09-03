@@ -2,6 +2,7 @@
 #include "tests.hpp"
 #include "TestBasic.hpp"
 #include "TestOam.hpp"
+#include "TestSnd.hpp"
 #include "TestSpr.hpp"
 #include "TestVramObj.hpp"
 #include <stdio.h>
@@ -14,12 +15,14 @@
 
 static TestBasic basic;
 static TestOam oam;
+static TestSnd snd;
 static TestSpr spr;
 static TestVramObj vramObj;
 
 static Test *tests[] = {
   &basic,
   &oam,
+  &snd,
   &spr,
   &vramObj,
   NULL

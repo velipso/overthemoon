@@ -34,6 +34,14 @@ int Snd::test(bool verbose) {
 /*
   example WAV parsing with IMA ADPCM compression
 
+  ffmpeg -i input.wav \
+    -ac 1 \
+    -ar 32768 \
+    -c:a adpcm_ima_wav \
+    -map_metadata -1 \
+    -fflags +bitexact \
+    output.wav
+
   FILE *fp = fopen("temp/accept.ima.wav", "rb");
   if (!fp) {
     log("failed to open\n");

@@ -2,19 +2,6 @@
 #pragma once
 #include <stdint.h>
 
-struct SndChannel {
-  int16_t state;
-  int16_t duration;
-  int16_t release;
-  int16_t volume;
-  int16_t volumeSlideStep;
-  int16_t volumeSlideTarget;
-  int16_t pitch;
-  int16_t pitchSlideStep;
-  int16_t pitchSlideTarget;
-  int16_t phase;
-};
-
 struct Snd {
 #ifdef PLATFORM_GBA
   int8_t bufferDMA[1216];

@@ -284,8 +284,8 @@ class Events {
       let wait = e.frame - lastFrame;
       if (wait < 0) throw new Error('Bad event order?');
       while (wait > 0) {
-        const w = Math.min(255, wait);
-        result.push(EV_WAIT | w);
+        const w = Math.min(256, wait);
+        result.push(EV_WAIT | (w - 1));
         wait -= w;
       }
       for (const v of e.value) {
@@ -477,12 +477,14 @@ function parseTreeIntoOut(rootChildren: Chunk[]): OutputFile {
         const loop = parseFloat(attr.get('Loop') ?? '');
         const release = parseFloat(attr.get('Release') ?? '');
         const values = (attr.get('Values')?.split(',') || []).map(parseFloat);
-        envs.push({
-          kind,
-          loop: isNaN(loop) ? -1 : loop,
-          release: isNaN(release) ? -1 : release,
-          values
-        });
+        if (values.length > 0) {
+          envs.push({
+            kind,
+            loop: isNaN(loop) ? -1 : loop,
+            release: isNaN(release) ? -1 : release,
+            values
+          });
+        }
       }
 
       instrumentNameToIndex.set(instrumentName, out.instruments.length);
@@ -663,6 +665,7 @@ function serializeOut(out: OutputFile): number[] {
   for (const instrument of out.instruments) {
     align32();
     instRewrite.shift()?.(bytes.length);
+    const instrumentStart = bytes.length;
     write8(instrument.volumeMapping);
     write8(instrument.envelopes.length);
     write8(0); // reserved
@@ -670,11 +673,12 @@ function serializeOut(out: OutputFile): number[] {
     const envRewrite = instrument.envelopes.map(() => rewrite32());
     for (const env of instrument.envelopes) {
       align32();
-      envRewrite.shift()?.(bytes.length);
+      envRewrite.shift()?.(bytes.length - instrumentStart);
       write8(env.kind);
       write8(0); // reserved
       write16(env.loop);
       write16(env.release);
+      if (env.values.length <= 0) throw new Error('Empty envelope');
       write16(env.values.length);
       for (const v of env.values) {
         write8(v < 0 ? 256 + v : v);

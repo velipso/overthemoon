@@ -15,6 +15,7 @@ static bool g_verbose;
 #endif
 
 struct FamiHeader {
+  uint32_t magic;
   uint16_t instrumentsLength;
   uint16_t songsLength;
   uint32_t instrumentsOffset;
@@ -48,7 +49,144 @@ struct FamiChannel {
   uint8_t kind;
   uint8_t reserved;
   uint16_t patternsLength;
-  uint16_t instances[];
+  int16_t instances[];
+};
+
+struct SndChannel {
+  const uint16_t *events;
+  const FamiInstrument *instrument;
+  struct {
+    int cursor;
+    int value;
+  } env[8];
+  int wait;
+
+  void reset(const uint16_t *ev) {
+    events = ev;
+    instrument = nullptr;
+    wait = 0;
+  }
+
+  const FamiEnvelope *famiEnvelope(int en) {
+    return instrument
+      ? (const FamiEnvelope *)&(((const uint8_t *)instrument)[instrument->envelopesOffset[en]])
+      : nullptr;
+  }
+
+  void famiInstrument(const FamiInstrument *finst) {
+    instrument = finst;
+    if (!instrument) return;
+    for (int en = 0; en < instrument->envelopesLength; en++) {
+      const FamiEnvelope *fenv = famiEnvelope(en);
+      env[en].cursor = 0;
+      env[en].value = fenv->values[0];
+    }
+  }
+};
+
+struct SndSong {
+  const FamiHeader &fami;
+  const FamiSong &song;
+  int frame;
+  SndChannel channels[16];
+
+  SndSong(const FamiHeader &fami, const FamiSong &song) : fami(fami), song(song) {
+    loadColumn(0);
+  }
+
+  const uint8_t *root() {
+    return (const uint8_t *)&fami;
+  }
+
+  void loadColumn(int column) {
+    frame = 0;
+
+    for (int ch = 0; ch < 16; ch++) {
+      if (ch > song.channelsLength) { // channelsLength is off by one (intentional)
+        channels[ch].reset(nullptr);
+        continue;
+      }
+
+      const FamiChannel &channel = *(const FamiChannel *)&root()[song.channelsOffset[ch]];
+      int pa = channel.instances[column];
+      if (pa < 0) {
+        channels[ch].reset(nullptr);
+        continue;
+      }
+
+      const uint32_t *patternsOffset = (const uint32_t *)&root()[
+        song.channelsOffset[ch] +
+        sizeof(FamiChannel) +
+        sizeof(uint16_t) * song.songLength
+      ];
+
+      channels[ch].reset((const uint16_t *)&root()[patternsOffset[pa]]);
+    }
+  }
+
+  void tick() {
+    bool patternEnd = false;
+
+    for (int ch = 0; ch < 16; ch++) {
+      SndChannel &channel = channels[ch];
+      if (!channel.events) continue;
+      if (channel.wait > 0) {
+        channel.wait--;
+        continue;
+      }
+      for (;;) {
+        uint16_t ev = *channel.events++;
+        if ((ev & 0x8000) == 0) {
+          // double-payload
+          uint16_t e2 = *channel.events++;
+          int note = ev >> 8;
+          int release = (ev & 0xff) | ((e2 >> 3) & 0x700);
+          int duration = e2 & 0x7ff;
+          bool attack = (e2 & 0x8000) != 0;
+          bool autowait = (e2 & 0x4000) != 0;
+          log("[%d] NOTE %d/%d/%d %s%s\n",
+            ch, note, release, duration, attack ? "A" : "x", autowait ? "W" : "x");
+          if (autowait) {
+            channel.wait += duration;
+            goto next_channel;
+          }
+        } else {
+          // single-payload
+          int param = ev & 0xff;
+          switch ((ev >> 8) & 0x7f) {
+            case 0x00: // WAIT
+              log("[%d] WAIT\n", ch);
+              channel.wait += param + 1;
+              goto next_channel;
+            case 0x01: // PATEND
+              log("[%d] PATEND\n", ch);
+              patternEnd = true;
+              goto next_channel;
+            case 0x02: // INST1
+set_instrument:;
+              log("[%d] INST %d\n", ch, param);
+              {
+                const uint32_t *instrumentsOffset =
+                  (const uint32_t *)&root()[fami.instrumentsOffset];
+                channel.famiInstrument((const FamiInstrument *)&root()[instrumentsOffset[param]]);
+              }
+              break;
+            case 0x03: // INST2
+              param += 256;
+              goto set_instrument;
+            case 0x04: // VOL
+              log("[%d] VOL %d\n", ch, param);
+              break;
+          }
+        }
+      }
+next_channel:;
+    }
+
+    if (patternEnd) {
+      log("pattern end\n");
+    }
+  }
 };
 
 Snd &Snd::reset() {
@@ -119,25 +257,25 @@ int Snd::test(bool verbose) {
 
   const uint8_t *fami = dataSongsOutro;
 
-  const struct FamiHeader &header = *(const struct FamiHeader *)&fami[4];
+  const FamiHeader &header = *(const FamiHeader *)fami;
 
   int instrumentsLength = header.instrumentsLength;
   int songsLength = header.songsLength;
   int songsOffset = header.songsOffset;
 
-  printf("header: %d %d %08x %08x\n",
-    instrumentsLength, songsLength, header.instrumentsOffset, songsOffset);
+  printf("header: %08x %d %d %08x %08x\n",
+    header.magic, instrumentsLength, songsLength, header.instrumentsOffset, songsOffset);
 
   // INSTRUMENTS
   const uint32_t *instrumentsOffset = (const uint32_t *)&fami[header.instrumentsOffset];
   for (int st = 0; st < instrumentsLength; st++) {
-    const struct FamiInstrument &instrument =
-      *(const struct FamiInstrument *)&fami[instrumentsOffset[st]];
+    const FamiInstrument &instrument =
+      *(const FamiInstrument *)&fami[instrumentsOffset[st]];
     printf("instrument %d, volumeMapping %d, envelopesLength %d\n",
       st, instrument.volumeMapping, instrument.envelopesLength);
     for (int en = 0; en < instrument.envelopesLength; en++) {
-      const struct FamiEnvelope &envelope =
-        *(const struct FamiEnvelope *)&fami[instrument.envelopesOffset[en]];
+      const FamiEnvelope &envelope =
+        *(const FamiEnvelope *)&(((const uint8_t *)&instrument)[instrument.envelopesOffset[en]]);
       printf("  envelope %d, kind %d, loop %d, release %d, valuesLength %d\n",
         en, envelope.kind, envelope.loop, envelope.release, envelope.valuesLength);
       printf("   ");
@@ -152,7 +290,7 @@ int Snd::test(bool verbose) {
   songsOffset += songIndex * 4;
   int songOffset = *(uint32_t *)&fami[songsOffset];
 
-  const struct FamiSong &song = *(const struct FamiSong *)&fami[songOffset];
+  const FamiSong &song = *(const FamiSong *)&fami[songOffset];
 
   int channelsLength = song.channelsLength + 1;
   int songLength = song.songLength;
@@ -160,7 +298,7 @@ int Snd::test(bool verbose) {
   printf("channelsLength %d, songsLength %d\n", channelsLength, songLength);
 
   for (int ch = 0; ch < channelsLength; ch++) {
-    const struct FamiChannel &channel = *(const struct FamiChannel *)&fami[song.channelsOffset[ch]];
+    const FamiChannel &channel = *(const FamiChannel *)&fami[song.channelsOffset[ch]];
     printf("channel %d, kind %d, patternsLength %d\n", ch, channel.kind, channel.patternsLength);
 
     const uint32_t *patternsOffset = (const uint32_t *)&fami[
@@ -178,6 +316,12 @@ int Snd::test(bool verbose) {
       }
       printf("\n");
     }
+  }
+
+  SndSong sndSong(header, song);
+  for (int t = 0; t < 100; t++) {
+    printf("tick\n");
+    sndSong.tick();
   }
 
   for (int i = 0; i < 20000; i++) {

@@ -3,6 +3,7 @@
 
 #include "gba/Snd.cpp"
 #include "gba/Snd.iwram.cpp"
+#include "data/songs/outro.cpp" // TODO: remove
 
 TestSnd::TestSnd() {
   Test::name = "Snd";

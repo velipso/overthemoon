@@ -15,6 +15,7 @@ root-dir            = $(if $(filter .,$(ROOT_DIR)),$(1),$(ROOT_DIR)/$(1))
 SRC_DIR            := $(call root-dir,src)
 GBA_DIR            := $(call root-dir,gba)
 DATA_DIR           := $(call root-dir,data)
+SONGS_DIR          := $(DATA_DIR)/songs
 SPRSHEETS_DIR      := $(DATA_DIR)/spritesheets
 TYPES_DIR          := $(call root-dir,types)
 TESTS_DIR          := $(call root-dir,tests)
@@ -23,6 +24,7 @@ SCRIPTS_DIR        := $(call root-dir,scripts)
 TGT_DIR            := $(call root-dir,tgt)
 TGT_DATA_DIR       := $(TGT_DIR)/data
 TGT_DATA_SRC_DIR   := $(TGT_DATA_DIR)/data
+TGT_SONGS_DIR      := $(TGT_DATA_SRC_DIR)/songs
 TGT_SPRSHEETS_DIR  := $(TGT_DATA_SRC_DIR)/spritesheets
 TGT_TYPES_DIR      := $(TGT_DIR)/types
 TGT_TYPES_SRC_DIR  := $(TGT_TYPES_DIR)/types
@@ -287,6 +289,30 @@ $(ANIMATIONS_OBJ): $(ANIMATIONS_CPP)
 
 # -----
 
+SONGS_TXT          := $(shell find $(SONGS_DIR) -type f -name '*.txt')
+SONGS_BIN          := $(patsubst $(SONGS_DIR)/%.txt,$(TGT_SONGS_DIR)/%.bin,$(SONGS_TXT))
+SONGS_HPP          := $(patsubst $(SONGS_DIR)/%.txt,$(TGT_SONGS_DIR)/%.hpp,$(SONGS_TXT))
+SONGS_CPP          := $(patsubst $(SONGS_DIR)/%.txt,$(TGT_SONGS_DIR)/%.cpp,$(SONGS_TXT))
+SONGS_OBJS         := $(patsubst $(SONGS_DIR)/%.txt,$(TGT_SONGS_DIR)/%.cpp.o,$(SONGS_TXT))
+
+$(TGT_SONGS_DIR)/%.bin: $(SONGS_DIR)/%.txt $(SCRIPTS_DIR)/famistudio.ts
+	@mkdir -p $(@D)
+	node $(SCRIPTS_DIR)/famistudio.ts -o $@ $<
+
+$(TGT_SONGS_DIR)/%.hpp $(TGT_SONGS_DIR)/%.cpp: $(TGT_SONGS_DIR)/%.bin $(SCRIPTS_DIR)/embed.ts
+	@mkdir -p $(@D)
+	node $(SCRIPTS_DIR)/embed.ts \
+		-o $(TGT_SONGS_DIR)/$*.hpp \
+		-o $(TGT_SONGS_DIR)/$*.cpp \
+		-n $(TGT_DATA_DIR) \
+		$(TGT_SONGS_DIR)/$*.bin
+
+$(TGT_SONGS_DIR)/%.cpp.o: $(TGT_SONGS_DIR)/%.cpp $(TGT_SONGS_DIR)/%.hpp $(TGT_SONGS_DIR)/%.bin
+	@mkdir -p $(@D)
+	$(ARM_CPP) $(ARM_CPPFLAGS) -MMD -MP -c -o $@ $<
+
+# -----
+
 PALETTE_BIN        := $(TGT_DATA_SRC_DIR)/palette.bin
 PALETTE_HPP        := $(PALETTE_BIN:.bin=.hpp)
 PALETTE_CPP        := $(PALETTE_BIN:.bin=.cpp)
@@ -358,6 +384,7 @@ ARM_OBJS           := \
 	$(TYPE_ARM_OBJS) \
 	$(ANIMATIONS_OBJ) \
 	$(PALETTE_OBJ) \
+	$(SONGS_OBJS) \
 	$(SPRSHEETS_OBJS)
 ARM_DEPS           := $(ARM_OBJS:.o=.d)
 
@@ -398,6 +425,7 @@ $(ARM_OBJS): \
 	$(TYPE_HPP) \
 	$(ANIMATIONS_HPP) \
 	$(PALETTE_HPP) \
+	$(SONGS_HPP) \
 	$(SPRSHEETS_HPP)
 
 $(GBA_ELF): $(ARM_OBJS)
